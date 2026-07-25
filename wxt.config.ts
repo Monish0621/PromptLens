@@ -9,6 +9,7 @@ export default defineConfig({
     version: '1.0.0',
     permissions: [
       'activeTab',
+      'tabs',
       'scripting',
       'offscreen',
       'storage',

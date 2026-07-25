@@ -31,13 +31,16 @@ export default defineContentScript({
 
     // Send proactive REGISTER_AI_TAB message to background
     const registerSelf = () => {
+      logger.info(`[CONTENT] REGISTER_AI_TAB sent for ${provider} on ${window.location.href}`);
       chrome.runtime.sendMessage({
         action: 'REGISTER_AI_TAB',
         provider,
         url: window.location.href,
         title: document.title || provider,
         timestamp: Date.now()
-      }).catch(() => {});
+      }).catch(err => {
+        logger.debug('[CONTENT] REGISTER_AI_TAB send notice: ' + err.message);
+      });
     };
     registerSelf();
 

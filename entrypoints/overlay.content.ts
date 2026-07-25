@@ -22,6 +22,11 @@ export default defineContentScript({
 
     // Listen for messages from the background script
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      if (message.action === 'PING_OVERLAY') {
+        sendResponse({ pong: true });
+        return false;
+      }
+
       if (message.action === 'ACTIVATE_OVERLAY') {
         logger.info(`Message received: ACTIVATE_OVERLAY (mode="${message.mode || 'snip'}")`);
         if (isOverlayActive) {
@@ -69,7 +74,7 @@ export default defineContentScript({
       }
 
       if (message.action === 'SHOW_SHARE_SHEET') {
-        logger.info('Message received: SHOW_SHARE_SHEET');
+        logger.info('[CONTENT] Message received: SHOW_SHARE_SHEET');
         renderShareSheet(message.payload, message.candidates);
         sendResponse({ status: 'displayed' });
         return false;

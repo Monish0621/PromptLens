@@ -280,14 +280,19 @@ export default defineBackground(() => {
       for (const c of candidates) {
         try {
           const tab = await chrome.tabs.get(c.tabId);
-          if (tab && tab.url) {
-            const fresh = this.evaluateTab(tab);
-            if (fresh) valid.push(fresh);
+          if (tab) {
+            if (tab.url) {
+              const fresh = this.evaluateTab(tab);
+              if (fresh) valid.push(fresh);
+            } else {
+              valid.push(c);
+            }
           }
         } catch {
           this.unregister(c.tabId, 'Tab no longer exists');
         }
       }
+      logger.info(`[BACKGROUND] Registry read: ${valid.length} active AI tabs found`);
       return valid;
     }
 
@@ -304,6 +309,29 @@ export default defineBackground(() => {
     const candidates = await aiTabRegistry.getActiveCandidates();
     logger.info(`findSupportedAITabs: Registry returned ${candidates.length} active AI tab(s): ${candidates.map(t => t.name).join(', ') || 'none'}`);
     return candidates;
+  }
+
+  /**
+   * Ensure overlay script is loaded in capture tab before sending SHOW_SHARE_SHEET
+   */
+  async function ensureOverlayScriptInTab(tabId: number): Promise<boolean> {
+    try {
+      await chrome.tabs.sendMessage(tabId, { action: 'PING_OVERLAY' });
+      return true;
+    } catch {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['content-scripts/overlay.js']
+        });
+        logger.info(`ensureOverlayScriptInTab: Dynamically injected overlay.js into capture tab ${tabId}`);
+        await new Promise(r => setTimeout(r, 100));
+        return true;
+      } catch (injErr: any) {
+        logger.warn(`ensureOverlayScriptInTab failed for tab ${tabId}: ${injErr.message}`);
+        return false;
+      }
+    }
   }
 
   /**
@@ -416,6 +444,7 @@ export default defineBackground(() => {
     payload: object,
     captureTabId: number
   ): Promise<void> {
+    logger.info('[CAPTURE] Capture completed, reading AI Tab Registry...');
     const aiTabs = await findSupportedAITabs();
 
     if (aiTabs.length === 0) {
@@ -426,8 +455,7 @@ export default defineBackground(() => {
       return;
     }
 
-    // Always defer to popup selector (1 or more AI tabs) for consistent UX
-    logger.info(`routeInjection: ${aiTabs.length} AI tab(s) detected — storing pendingInjection & opening popup selector`);
+    logger.info(`[BACKGROUND] Registry read: ${aiTabs.length} AI tab(s) available for Share Sheet`);
     await chrome.storage.local.set({
       pendingInjection: {
         payload,
@@ -436,16 +464,20 @@ export default defineBackground(() => {
         timestamp: Date.now()
       }
     });
-    await PipelineTracker.updateStep('Injection', 'PENDING', `${aiTabs.length} AI tab(s) available — select target in popup`);
+    await PipelineTracker.updateStep('Injection', 'PENDING', `${aiTabs.length} AI tab(s) available — select target in Share Sheet`);
+
+    // Ensure overlay content script is ready in capture tab
+    await ensureOverlayScriptInTab(captureTabId);
 
     // Display Share Sheet directly on the active capture tab
     try {
+      logger.info(`[BACKGROUND] SHOW_SHARE_SHEET dispatched to capture tab ${captureTabId}`);
       await sendMessageToTab(captureTabId, {
         action: 'SHOW_SHARE_SHEET',
         payload,
         candidates: aiTabs
       });
-      logger.info(`routeInjection: SHOW_SHARE_SHEET sent to capture tab ${captureTabId}`);
+      logger.info(`[BACKGROUND] SHOW_SHARE_SHEET successfully delivered to tab ${captureTabId}`);
     } catch (err: any) {
       logger.warn(`routeInjection: Could not send SHOW_SHARE_SHEET to capture tab ${captureTabId}: ${err.message}`);
     }
