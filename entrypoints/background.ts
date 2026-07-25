@@ -127,7 +127,7 @@ export default defineBackground(() => {
     throw new Error(`Failed to communicate with tab content script after ${retries} attempts.`);
   }
 
-  // ── Supported AI tab discovery ─────────────────────────────────────────────
+  // ── Persistent AI Tab Registry ─────────────────────────────────────────────
 
   const AI_TAB_PATTERNS: Array<{ name: string; test: (url: URL) => boolean }> = [
     { name: 'ChatGPT',    test: u => u.hostname.endsWith('chatgpt.com') },
@@ -137,37 +137,173 @@ export default defineBackground(() => {
     { name: 'Perplexity', test: u => u.hostname.endsWith('perplexity.ai') },
   ];
 
-  interface AiTab {
+  interface RegisteredAiTab {
     tabId: number;
     windowId: number;
     name: string;
+    provider: 'ChatGPT' | 'Claude' | 'Gemini' | 'Grok' | 'Perplexity';
     title: string;
     url: string;
     favIconUrl?: string;
+    ready: boolean;
+    timestamp: number;
   }
 
-  /** Query all open browser tabs and return those on supported AI domains. */
-  async function findSupportedAITabs(): Promise<AiTab[]> {
-    const allTabs = await chrome.tabs.query({});
-    const results: AiTab[] = [];
-    for (const tab of allTabs) {
-      if (!tab.id || !tab.windowId || !tab.url) continue;
-      let parsed: URL;
-      try { parsed = new URL(tab.url); } catch { continue; }
-      const match = AI_TAB_PATTERNS.find(p => p.test(parsed));
-      if (match) {
-        results.push({
-          tabId: tab.id,
-          windowId: tab.windowId,
-          name: match.name,
-          title: tab.title || match.name,
-          url: tab.url,
-          favIconUrl: tab.favIconUrl,
-        });
+  class AiTabRegistryManager {
+    private registry = new Map<number, RegisteredAiTab>();
+
+    constructor() {
+      this.init();
+    }
+
+    private async init() {
+      // Restore cached registry state from local storage
+      try {
+        const res = await chrome.storage.local.get('aiTabRegistry');
+        if (res.aiTabRegistry && Array.isArray(res.aiTabRegistry)) {
+          for (const item of res.aiTabRegistry) {
+            this.registry.set(item.tabId, item);
+          }
+        }
+      } catch {}
+
+      // Initial proactive scan of open tabs on background start
+      this.reScanAllTabs();
+
+      // Listen for tab removal (closing tab)
+      chrome.tabs.onRemoved.addListener((tabId) => {
+        this.unregister(tabId, 'Tab Closed');
+      });
+
+      // Listen for tab URL/title updates & navigation
+      chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (tab.url) {
+          this.evaluateTab(tab);
+        }
+      });
+
+      // Listen for tab replacement
+      chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+        this.unregister(removedTabId, 'Tab Replaced');
+        chrome.tabs.get(addedTabId).then(tab => {
+          if (tab) this.evaluateTab(tab);
+        }).catch(() => {});
+      });
+    }
+
+    public async reScanAllTabs() {
+      try {
+        const tabs = await chrome.tabs.query({});
+        const currentIds = new Set<number>();
+
+        for (const tab of tabs) {
+          if (!tab.id || !tab.url) continue;
+          const matched = this.evaluateTab(tab);
+          if (matched) {
+            currentIds.add(tab.id);
+          }
+        }
+
+        // Purge any stale tab not in chrome.tabs
+        for (const [tabId] of this.registry) {
+          if (!currentIds.has(tabId)) {
+            this.registry.delete(tabId);
+          }
+        }
+        this.syncStorage();
+      } catch (err: any) {
+        logger.warn('AiTabRegistry reScanAllTabs error: ' + err.message);
       }
     }
-    logger.info(`findSupportedAITabs: Found ${results.length} supported AI tab(s): ${results.map(t => t.name).join(', ') || 'none'}`);
-    return results;
+
+    public evaluateTab(tab: chrome.tabs.Tab): RegisteredAiTab | null {
+      if (!tab.id || !tab.windowId || !tab.url) return null;
+      let urlObj: URL;
+      try { urlObj = new URL(tab.url); } catch { return null; }
+
+      const match = AI_TAB_PATTERNS.find(p => p.test(urlObj));
+      if (match) {
+        const registered: RegisteredAiTab = {
+          tabId: tab.id,
+          windowId: tab.windowId,
+          provider: match.name as any,
+          name: match.name,
+          url: tab.url,
+          title: tab.title || match.name,
+          favIconUrl: tab.favIconUrl,
+          ready: true,
+          timestamp: Date.now()
+        };
+        this.registry.set(tab.id, registered);
+        this.syncStorage();
+        logger.info(`AiTabRegistry: Evaluated & registered tab ${tab.id} (${match.name})`);
+        return registered;
+      } else {
+        if (this.registry.has(tab.id)) {
+          this.unregister(tab.id, 'Navigated away from AI domain');
+        }
+        return null;
+      }
+    }
+
+    public registerFromMessage(senderTabId: number, senderWindowId: number, data: any) {
+      const existing = this.registry.get(senderTabId);
+      const provider = data.provider || existing?.provider || 'ChatGPT';
+      const updated: RegisteredAiTab = {
+        tabId: senderTabId,
+        windowId: senderWindowId,
+        provider,
+        name: provider,
+        url: data.url || existing?.url || '',
+        title: data.title || existing?.title || provider,
+        favIconUrl: existing?.favIconUrl,
+        ready: true,
+        timestamp: Date.now()
+      };
+      this.registry.set(senderTabId, updated);
+      this.syncStorage();
+      logger.info(`AiTabRegistry: Self-registration from content script for tab ${senderTabId} (${provider})`);
+    }
+
+    public unregister(tabId: number, reason: string) {
+      if (this.registry.has(tabId)) {
+        this.registry.delete(tabId);
+        this.syncStorage();
+        logger.info(`AiTabRegistry: Unregistered tab ${tabId} Reason: [${reason}]`);
+      }
+    }
+
+    public async getActiveCandidates(): Promise<RegisteredAiTab[]> {
+      const candidates = Array.from(this.registry.values());
+      const valid: RegisteredAiTab[] = [];
+
+      for (const c of candidates) {
+        try {
+          const tab = await chrome.tabs.get(c.tabId);
+          if (tab && tab.url) {
+            const fresh = this.evaluateTab(tab);
+            if (fresh) valid.push(fresh);
+          }
+        } catch {
+          this.unregister(c.tabId, 'Tab no longer exists');
+        }
+      }
+      return valid;
+    }
+
+    private syncStorage() {
+      const list = Array.from(this.registry.values());
+      chrome.storage.local.set({ aiTabRegistry: list }).catch(() => {});
+    }
+  }
+
+  const aiTabRegistry = new AiTabRegistryManager();
+
+  /** Query registered AI tabs with zero latency */
+  async function findSupportedAITabs(): Promise<RegisteredAiTab[]> {
+    const candidates = await aiTabRegistry.getActiveCandidates();
+    logger.info(`findSupportedAITabs: Registry returned ${candidates.length} active AI tab(s): ${candidates.map(t => t.name).join(', ') || 'none'}`);
+    return candidates;
   }
 
   /**
@@ -302,14 +438,16 @@ export default defineBackground(() => {
     });
     await PipelineTracker.updateStep('Injection', 'PENDING', `${aiTabs.length} AI tab(s) available — select target in popup`);
 
-    // Notify popup if already open; otherwise Chrome will show the badge
-    chrome.runtime.sendMessage({ action: 'PENDING_INJECTION_READY', candidates: aiTabs }).catch(() => {});
-
-    // Open the popup so the user can select
+    // Display Share Sheet directly on the active capture tab
     try {
-      await (chrome.action as any).openPopup();
-    } catch {
-      logger.warn('routeInjection: chrome.action.openPopup() unavailable; user must open popup manually.');
+      await sendMessageToTab(captureTabId, {
+        action: 'SHOW_SHARE_SHEET',
+        payload,
+        candidates: aiTabs
+      });
+      logger.info(`routeInjection: SHOW_SHARE_SHEET sent to capture tab ${captureTabId}`);
+    } catch (err: any) {
+      logger.warn(`routeInjection: Could not send SHOW_SHARE_SHEET to capture tab ${captureTabId}: ${err.message}`);
     }
   }
 
@@ -502,6 +640,20 @@ export default defineBackground(() => {
     if (message.action === 'RECORDING_LIMIT_REACHED') {
       logger.warn('Offscreen signaled MediaRecorder limit hit (15s limit reached)');
       chrome.runtime.sendMessage({ action: 'RECORDING_AUTO_STOPPED' }).catch(() => {});
+    }
+
+    // 6. Register AI Tab message from content script
+    if (message.action === 'REGISTER_AI_TAB' && sender.tab?.id && sender.tab?.windowId) {
+      aiTabRegistry.registerFromMessage(sender.tab.id, sender.tab.windowId, message);
+      sendResponse({ status: 'registered' });
+      return false;
+    }
+
+    // 7. Unregister AI Tab message from content script
+    if (message.action === 'UNREGISTER_AI_TAB' && sender.tab?.id) {
+      aiTabRegistry.unregister(sender.tab.id, 'Content script unload');
+      sendResponse({ status: 'unregistered' });
+      return false;
     }
 
     // 6. Popup dispatching a pending injection to selected tabs

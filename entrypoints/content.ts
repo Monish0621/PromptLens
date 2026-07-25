@@ -13,10 +13,51 @@ export default defineContentScript({
     '*://grok.com/*',
     '*://*.grok.com/*',
     '*://x.com/i/grok',
-    '*://*.x.com/i/grok'
+    '*://*.x.com/i/grok',
+    '*://perplexity.ai/*',
+    '*://*.perplexity.ai/*'
   ],
   main() {
     logger.info(`LLM Context Capture content script loaded on: ${window.location.hostname}`);
+
+    // Detect AI provider name
+    const host = window.location.hostname.toLowerCase();
+    let provider: 'ChatGPT' | 'Claude' | 'Gemini' | 'Grok' | 'Perplexity' = 'ChatGPT';
+    if (host.includes('chatgpt.com')) provider = 'ChatGPT';
+    else if (host.includes('claude.ai')) provider = 'Claude';
+    else if (host.includes('gemini.google.com')) provider = 'Gemini';
+    else if (host.includes('grok.com') || host.includes('x.com')) provider = 'Grok';
+    else if (host.includes('perplexity.ai')) provider = 'Perplexity';
+
+    // Send proactive REGISTER_AI_TAB message to background
+    const registerSelf = () => {
+      chrome.runtime.sendMessage({
+        action: 'REGISTER_AI_TAB',
+        provider,
+        url: window.location.href,
+        title: document.title || provider,
+        timestamp: Date.now()
+      }).catch(() => {});
+    };
+    registerSelf();
+
+    // Re-register if title changes dynamically (SPA navigation)
+    let lastTitle = document.title;
+    const titleObserver = new MutationObserver(() => {
+      if (document.title !== lastTitle) {
+        lastTitle = document.title;
+        registerSelf();
+      }
+    });
+    const titleNode = document.querySelector('title');
+    if (titleNode) {
+      titleObserver.observe(titleNode, { childList: true });
+    }
+
+    // Unregister on page unload
+    window.addEventListener('beforeunload', () => {
+      chrome.runtime.sendMessage({ action: 'UNREGISTER_AI_TAB' }).catch(() => {});
+    });
 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Liveness probe used by background to check if content script is loaded
