@@ -18,6 +18,12 @@ export default defineContentScript({
     '*://*.perplexity.ai/*'
   ],
   main() {
+    if ((window as any).__LLM_CONTEXT_CAPTURE_CONTENT_INITIALIZED__) {
+      logger.warn('[Content] Content script already initialized on this window context. Skipping duplicate setup.');
+      return;
+    }
+    (window as any).__LLM_CONTEXT_CAPTURE_CONTENT_INITIALIZED__ = true;
+
     logger.info(`LLM Context Capture content script loaded on: ${window.location.hostname}`);
 
     // Detect AI provider name
@@ -62,6 +68,10 @@ export default defineContentScript({
       chrome.runtime.sendMessage({ action: 'UNREGISTER_AI_TAB' }).catch(() => {});
     });
 
+    // Deduplication tracking set for active injection UUIDs
+    const processedInjectionIds = new Set<string>();
+
+    logger.info('[Content] Message listener initialized');
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Liveness probe used by background to check if content script is loaded
       if (message.action === 'PING') {
@@ -104,12 +114,22 @@ export default defineContentScript({
       }
 
       if (message.action === 'INJECT_PAYLOAD') {
-        const { type } = message.payload;
-        logger.info(`Message received: INJECT_PAYLOAD for type="${type}"`);
+        const { type, injectionId } = message.payload;
+        logger.info(`[Content] INJECT_PAYLOAD received (injectionId: ${injectionId || 'none'})`);
+
+        if (injectionId) {
+          logger.info(`Received injectionId: ${injectionId}`);
+          if (processedInjectionIds.has(injectionId)) {
+            logger.warn(`[Content] Duplicate INJECT_PAYLOAD dropped for injectionId: ${injectionId}`);
+            sendResponse({ success: true, duplicate: true });
+            return false;
+          }
+          processedInjectionIds.add(injectionId);
+        }
 
         if (type === 'image') {
           logger.info('Message handled: Injecting image crop into target Chat window');
-          injectImageToLLM(message.payload.dataUrl, false)
+          injectImageToLLM(message.payload.dataUrl, false, injectionId)
             .then(success => {
               logger.info(`Response sent: INJECT_PAYLOAD image success=${success}`);
               sendResponse({ success });
@@ -124,7 +144,7 @@ export default defineContentScript({
 
         if (type === 'video') {
           logger.info('Message handled: Injecting compiled tab recording video into target Chat window');
-          injectImageToLLM(message.payload.dataUrl, true)
+          injectImageToLLM(message.payload.dataUrl, true, injectionId)
             .then(success => {
               logger.info(`Response sent: INJECT_PAYLOAD video success=${success}`);
               sendResponse({ success });
@@ -134,12 +154,12 @@ export default defineContentScript({
               logger.info('Response sent: INJECT_PAYLOAD video error');
               sendResponse({ success: false, error: err.message });
             });
-          return true;
+          return true; // Keep channel open
         }
 
         if (type === 'text') {
           logger.info('Message handled: Injecting OCR extracted text into target Chat window');
-          injectTextToLLM(message.payload.data)
+          injectTextToLLM(message.payload.data, injectionId)
             .then(success => {
               logger.info(`Response sent: INJECT_PAYLOAD text success=${success}`);
               sendResponse({ success });
@@ -149,7 +169,7 @@ export default defineContentScript({
               logger.info('Response sent: INJECT_PAYLOAD text error');
               sendResponse({ success: false, error: err.message });
             });
-          return true;
+          return true; // Keep channel open
         }
       }
     });

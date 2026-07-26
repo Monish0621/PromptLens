@@ -1,5 +1,5 @@
-import { createWorker } from 'tesseract.js';
 import { createLogger } from '../../utils/logger';
+import { performOCR } from '../../utils/ocrPipeline/pipeline';
 
 const logger = createLogger('Offscreen');
 
@@ -117,101 +117,22 @@ async function handleCrop(
 }
 
 /**
- * Runs client-side OCR on a cropped image dataURL
+ * Runs the OCR pipeline on a cropped image data URL.
+ *
+ * This function is intentionally minimal — all OCR logic lives inside
+ * the pipeline stages in utils/ocrPipeline/.
+ *
+ * The { success, text } response shape sent back to background.ts is
+ * UNCHANGED. background.ts requires zero modifications.
  */
 async function handleOcr(croppedDataUrl: string): Promise<string> {
-  logger.info('Enter handleOcr()');
-  logger.info('Creating worker');
-  
-  // Tesseract.js v7 createWorker(lang, oem, options):
-  // - workerPath: full path to worker.min.js (ends in .js → used as-is by worker loader)
-  // - corePath: full path to tesseract-core.wasm.js (ends in .js → loaded directly via importScripts)
-  // - langPath: directory URL; worker fetches langPath/eng.traineddata.gz from this origin
-  // - workerBlobURL: false → mandatory for MV3; prevents Blob URL worker creation which CSP blocks
-  // - wasm-unsafe-eval in manifest CSP is required for WebAssembly.instantiate() inside wasm.js
-  const worker = await createWorker('eng', 1, {
-    workerPath: chrome.runtime.getURL('tesseract/worker.min.js'),
-    corePath: chrome.runtime.getURL('tesseract/tesseract-core.wasm.js'),
-    langPath: chrome.runtime.getURL('tesseract'),
-    workerBlobURL: false,
-    logger: (m) => {
-      logger.debug(`OCR Progress: ${m.status} | ${(m.progress * 100).toFixed(0)}%`);
-    }
-  }).catch((err) => {
-    logger.error('Worker Creation failed. Stack trace:\n' + (err.stack || err.message || err));
-    throw err;
-  });
-
-  logger.info('Worker created');
-  logger.info('Language loaded');
-
-  try {
-    logger.info('Recognition started');
-    const { data: { text } } = await worker.recognize(croppedDataUrl);
-    logger.info('Recognition finished');
-    logger.info('Returning OCR result');
-    return formatOcrResult(text);
-  } catch (err: any) {
-    logger.error('OCR recognition step failed. Stack trace:\n' + (err.stack || err.message || err));
-    throw err;
-  } finally {
-    logger.info('Worker Terminated');
-    await worker.terminate();
+  logger.info('[Offscreen] handleOcr() → performOCR()');
+  const result = await performOCR(croppedDataUrl);
+  if (result.errors.length > 0) {
+    throw new Error(result.errors.join('; '));
   }
-}
-
-/**
- * Heuristically formats OCR output to detect programming code and wraps it in markdown blocks
- */
-function formatOcrResult(text: string): string {
-  const cleaned = text.trim();
-  if (!cleaned) return '';
-
-  const codePatterns = [
-    /const\s+\w+\s*=/, /let\s+\w+\s*=/, /var\s+\w+\s*=/,
-    /function\s+\w+\(/, /import\s+.*\s+from/, /export\s+(const|default|class|interface)/,
-    /class\s+\w+/, /interface\s+\w+/, /public\s+class\s+\w+/,
-    /def\s+\w+\(/, /import\s+\w+/, /from\s+\w+\s+import/,
-    /console\.log\(/, /print\(/, /#include\s+<\w+>/,
-    /using\s+namespace\s+std;/, /System\.out\.println/,
-    /<\/?[a-z][a-z0-9]*[^<>]*>/i, // HTML tags
-    /\{\s*$/m, /\}\s*$/m // Curly brackets at end of lines
-  ];
-
-  const matchCount = codePatterns.filter(pattern => pattern.test(cleaned)).length;
-  const semiColons = (cleaned.match(/;/g) || []).length;
-  const braces = (cleaned.match(/[{}]/g) || []).length;
-
-  // Heuristic: If we match multiple patterns, or have multiple lines with braces and semi-colons
-  const isCode = matchCount >= 2 || (semiColons >= 3 && braces >= 2);
-
-  if (isCode) {
-    let lang = '';
-    const lower = cleaned.toLowerCase();
-    
-    if (lower.includes('import react') || lower.includes('from \'react\'') || lower.includes('const [') || lower.includes('useeffect')) {
-      lang = 'tsx';
-    } else if (lower.includes('interface ') || lower.includes('type ') && (lower.includes(': string') || lower.includes(': number'))) {
-      lang = 'typescript';
-    } else if (lower.includes('def ') || lower.includes('import sys') || lower.includes('print(')) {
-      lang = 'python';
-    } else if (lower.includes('<html>') || lower.includes('<!doctype') || lower.includes('href=')) {
-      lang = 'html';
-    } else if (lower.includes('function ') || lower.includes('const ') || lower.includes('console.log')) {
-      lang = 'javascript';
-    } else if (lower.includes('#include') || lower.includes('std::') || lower.includes('int main(')) {
-      lang = 'cpp';
-    } else if (lower.includes('public class ') || lower.includes('system.out.print')) {
-      lang = 'java';
-    } else if (lower.includes('body {') || lower.includes('@media') || lower.includes('padding:')) {
-      lang = 'css';
-    }
-
-    logger.debug(`Detected programming language: "${lang || 'text'}" for formatting`);
-    return `\`\`\`${lang}\n${cleaned}\n\`\`\``;
-  }
-
-  return cleaned;
+  logger.info(`[Offscreen] OCR complete. Pipeline: ${result.pipelineVersion}, elapsed: ${result.totalElapsedMs}ms`);
+  return result.text;
 }
 
 /**

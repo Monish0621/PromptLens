@@ -168,7 +168,7 @@ export default defineBackground(() => {
       } catch {}
 
       // Initial proactive scan of open tabs on background start
-      this.reScanAllTabs();
+      await this.reScanAllTabs();
 
       // Listen for tab removal (closing tab)
       chrome.tabs.onRemoved.addListener((tabId) => {
@@ -192,15 +192,54 @@ export default defineBackground(() => {
     }
 
     public async reScanAllTabs() {
+      const DEBUG_DIAGNOSTICS = true; // Development diagnostics flag
+
+      if (DEBUG_DIAGNOSTICS) {
+        console.groupCollapsed('LLM Context Capture Startup');
+        console.info('[Startup] Background service worker started');
+        console.info('[Startup] Scanning existing tabs...');
+      }
+
       try {
         const tabs = await chrome.tabs.query({});
         const currentIds = new Set<number>();
+        let foundCount = 0;
 
         for (const tab of tabs) {
-          if (!tab.id || !tab.url) continue;
+          if (!tab.id) {
+            if (DEBUG_DIAGNOSTICS) {
+              console.warn('[Startup][Warning] Failed to register tab: Missing tab ID');
+            }
+            continue;
+          }
+
+          if (!tab.url) {
+            if (DEBUG_DIAGNOSTICS) {
+              console.warn(`[Startup][Warning] Failed to register tab ${tab.id}: Restricted or missing URL permission`);
+            }
+            continue;
+          }
+
           const matched = this.evaluateTab(tab);
           if (matched) {
             currentIds.add(tab.id);
+            foundCount++;
+
+            if (DEBUG_DIAGNOSTICS) {
+              console.info(`[Startup] Registered ${matched.provider}\n  Tab: ${matched.tabId}\n  Window: ${matched.windowId}\n  URL: ${matched.url}`);
+            }
+
+            // Proactively re-inject content script to recover orphaned script instances after extension reload
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                files: ['content-scripts/content.js']
+              });
+            } catch (injErr: any) {
+              if (DEBUG_DIAGNOSTICS) {
+                console.warn(`[Startup][Warning] Content script re-injection notice for tab ${tab.id}: ${injErr.message}`);
+              }
+            }
           }
         }
 
@@ -211,8 +250,23 @@ export default defineBackground(() => {
           }
         }
         this.syncStorage();
+
+        if (DEBUG_DIAGNOSTICS) {
+          console.info(`[Startup] Found ${foundCount} supported AI tab(s)`);
+          if (foundCount === 0) {
+            console.info('[Startup] No supported AI tabs found.');
+          }
+          console.info('[Startup] Registry rebuilt successfully');
+          console.info(`[Startup] Active AI tabs: ${this.registry.size}`);
+        }
       } catch (err: any) {
-        logger.warn('AiTabRegistry reScanAllTabs error: ' + err.message);
+        if (DEBUG_DIAGNOSTICS) {
+          console.warn('[Startup][Warning] Failed to rebuild AI Tab Registry: ' + err.message);
+        }
+      } finally {
+        if (DEBUG_DIAGNOSTICS) {
+          console.groupEnd();
+        }
       }
     }
 
@@ -247,22 +301,35 @@ export default defineBackground(() => {
     }
 
     public registerFromMessage(senderTabId: number, senderWindowId: number, data: any) {
+      if (!data?.url) {
+        logger.warn(`AiTabRegistry: Rejected self-registration from tab ${senderTabId} - Missing URL`);
+        return;
+      }
+      let urlObj: URL;
+      try { urlObj = new URL(data.url); } catch { return; }
+
+      const match = AI_TAB_PATTERNS.find(p => p.test(urlObj));
+      if (!match) {
+        logger.warn(`AiTabRegistry: Rejected self-registration from tab ${senderTabId} ("${data.url}") - Not a supported AI domain`);
+        return;
+      }
+
       const existing = this.registry.get(senderTabId);
-      const provider = data.provider || existing?.provider || 'ChatGPT';
+      const provider = match.name as any;
       const updated: RegisteredAiTab = {
         tabId: senderTabId,
         windowId: senderWindowId,
         provider,
         name: provider,
-        url: data.url || existing?.url || '',
-        title: data.title || existing?.title || provider,
+        url: data.url,
+        title: data.title || provider,
         favIconUrl: existing?.favIconUrl,
         ready: true,
         timestamp: Date.now()
       };
       this.registry.set(senderTabId, updated);
       this.syncStorage();
-      logger.info(`AiTabRegistry: Self-registration from content script for tab ${senderTabId} (${provider})`);
+      logger.info(`AiTabRegistry: Self-registration validated & saved for tab ${senderTabId} (${provider})`);
     }
 
     public unregister(tabId: number, reason: string) {
@@ -281,18 +348,16 @@ export default defineBackground(() => {
         try {
           const tab = await chrome.tabs.get(c.tabId);
           if (tab) {
-            if (tab.url) {
-              const fresh = this.evaluateTab(tab);
-              if (fresh) valid.push(fresh);
-            } else {
-              valid.push(c);
-            }
+            valid.push(c);
           }
         } catch {
           this.unregister(c.tabId, 'Tab no longer exists');
         }
       }
       logger.info(`[BACKGROUND] Registry read: ${valid.length} active AI tabs found`);
+      for (const c of valid) {
+        console.info(`Registry Entry:\n  Provider: ${c.provider}\n  Tab ID: ${c.tabId}\n  Window ID: ${c.windowId}\n  URL: ${c.url}\n  Title: ${c.title}`);
+      }
       return valid;
     }
 
@@ -335,29 +400,41 @@ export default defineBackground(() => {
   }
 
   /**
-   * Ensure the content script is loaded in a tab, injecting it dynamically if needed.
-   * Returns true if the script is ready to receive messages.
+   * Ensure the content script is loaded in a tab.
+   * Flow:
+   * 1. PING existing content script
+   * 2. If PING succeeds -> continue
+   * 3. If PING fails -> attempt reinjection
+   * 4. If reinjection fails -> return explicit reason
    */
-  async function ensureContentScriptInTab(tabId: number): Promise<boolean> {
+  async function ensureContentScriptInTab(tabId: number): Promise<{ success: boolean; reason?: string }> {
     try {
-      // Ping the content script — if it responds, it is loaded
-      await chrome.tabs.sendMessage(tabId, { action: 'PING' });
-      return true;
-    } catch {
-      // Not loaded yet — inject dynamically
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['content-scripts/content.js']
-        });
-        logger.info(`ensureContentScriptInTab: Dynamically injected content script into tab ${tabId}`);
-        // Brief pause to let the script register its message listener
-        await new Promise(r => setTimeout(r, 200));
-        return true;
-      } catch (injErr: any) {
-        logger.warn(`ensureContentScriptInTab: Could not inject content script into tab ${tabId}: ${injErr.message}`);
-        return false;
+      const res = await chrome.tabs.sendMessage(tabId, { action: 'PING' });
+      if (res && res.pong) {
+        logger.info(`ensureContentScriptInTab: Content script PING succeeded for tab ${tabId}`);
+        return { success: true };
       }
+    } catch (pingErr: any) {
+      logger.info(`ensureContentScriptInTab: Initial PING failed for tab ${tabId} (${pingErr.message}). Attempting reinjection fallback...`);
+    }
+
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['content-scripts/content.js']
+      });
+      await new Promise(r => setTimeout(r, 100));
+
+      const verifyRes = await chrome.tabs.sendMessage(tabId, { action: 'PING' });
+      if (verifyRes && verifyRes.pong) {
+        logger.info(`ensureContentScriptInTab: Dynamically reinjected content script into tab ${tabId}`);
+        return { success: true };
+      }
+      return { success: false, reason: 'Re-injected content script did not respond to PING verification' };
+    } catch (injErr: any) {
+      const reason = `Failed to inject content script into tab ${tabId}: ${injErr.message}`;
+      logger.warn(`ensureContentScriptInTab: ${reason}`);
+      return { success: false, reason };
     }
   }
 
@@ -369,7 +446,6 @@ export default defineBackground(() => {
     try {
       const tab = await chrome.tabs.get(captureTabId);
       if (tab && tab.id) {
-        logger.info(`Restoring focus to original capture tab ID: ${tab.id}`);
         await chrome.tabs.update(tab.id, { active: true });
         if (tab.windowId) {
           await chrome.windows.update(tab.windowId, { focused: true });
@@ -386,10 +462,11 @@ export default defineBackground(() => {
    * 2. If background injection fails, temporarily activate target tab for retry
    * Returns { success, error? }
    */
-  async function injectIntoTab(tab: AiTab, payload: object): Promise<{ success: boolean; error?: string }> {
+  async function injectIntoTab(tab: RegisteredAiTab, payload: object): Promise<{ success: boolean; error?: string }> {
+    console.info(`Actual dispatch:\n  tabId: ${tab.tabId}\n  provider: ${tab.provider}`);
     const ready = await ensureContentScriptInTab(tab.tabId);
-    if (!ready) {
-      return { success: false, error: `Content script could not be loaded in ${tab.name} tab` };
+    if (!ready.success) {
+      return { success: false, error: ready.reason || `Content script could not be loaded in ${tab.name} tab` };
     }
 
     // Step 1: FIRST attempt injection WITHOUT activating/switching tabs
@@ -597,10 +674,21 @@ export default defineBackground(() => {
     }
   });
 
+  // Handle extension installation & reload events to rebuild AI Tab Registry immediately
+  chrome.runtime.onInstalled.addListener((details) => {
+    logger.info(`[Startup] Extension ${details.reason} event detected. Triggering immediate AI Tab Registry rebuild...`);
+    aiTabRegistry.reScanAllTabs();
+  });
+
   // Main message router
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // 1. Coordinates received from Overlay Content Script
     if (message.action === 'REGION_SELECTED') {
+      console.log("[Background] REGION_SELECTED received", {
+          senderTab: sender.tab?.id,
+          senderFrameId: sender.frameId,
+          coords: message.coords
+      });
       logger.info('Message received: REGION_SELECTED');
       logger.info('Message handled: Initiating handleRegionSelected processing flow');
       handleRegionSelected(message.mode, message.coords, sender.tab)
@@ -708,6 +796,7 @@ export default defineBackground(() => {
             results[tabId] = { success: false, error: 'Tab no longer open' };
             continue;
           }
+          console.info(`Selected destinations:\n  Tab ID: ${tab.tabId}\n  Provider: ${tab.provider}\n  URL: ${tab.url}`);
           results[tabId] = await injectIntoTab(tab, payload);
         }
 
@@ -743,6 +832,9 @@ export default defineBackground(() => {
     coords: Coords,
     activeTab?: chrome.tabs.Tab
   ) {
+    console.count("[Background] handleRegionSelected");
+    console.trace("[Background] handleRegionSelected stack");
+
     logger.info(`handleRegionSelected initiated: mode=${mode}, coords=${JSON.stringify(coords)}`);
     if (!activeTab || !activeTab.id || !activeTab.windowId) {
       const err = new Error('No active tab context available');
@@ -756,6 +848,7 @@ export default defineBackground(() => {
       await PipelineTracker.updateStep('Coordinates', 'SUCCESS');
 
       // 1. Capture visible tab viewport
+      console.count("[Pipeline] captureVisibleTab");
       logger.info('Background ➔ Capture: Triggering chrome.tabs.captureVisibleTab...');
       let viewportDataUrl = '';
       try {
@@ -773,6 +866,7 @@ export default defineBackground(() => {
       await setupOffscreenDocument();
 
       // 3. Request offscreen to crop screenshot
+      console.count("[Pipeline] cropScreenshot");
       logger.info('Background ➔ Offscreen: Dispatching CROP_SCREENSHOT action to offscreen');
       let cropResponse: any = null;
       try {
@@ -806,6 +900,7 @@ export default defineBackground(() => {
         }).catch(() => {});
 
         // Store image in session storage history
+        console.count("[Pipeline] saveHistory");
         const item = await saveToHistory('image', croppedDataUrl);
 
         // Focus tab/window so content script has permission to write to clipboard
@@ -820,6 +915,7 @@ export default defineBackground(() => {
         }
 
         // Execute clipboard write via Tab content script context
+        console.count("[Pipeline] writeClipboard");
         logger.info('Background ➔ Content: Requesting content script to write PNG image to system clipboard');
         let clipboardSuccess = false;
         try {
@@ -845,14 +941,17 @@ export default defineBackground(() => {
         }
         
         // Route image into the correct AI tab (auto or popup-selected)
-        logger.info('Background: Routing image snip to AI tab via routeInjection');
+        console.count("[Pipeline] dispatchInjection");
+        const injectionId = 'inj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+        logger.info(`Background: Routing image snip (injectionId: ${injectionId}) to AI tab via routeInjection`);
         await routeInjection(
-          { type: 'image', dataUrl: croppedDataUrl, id: item?.id },
+          { type: 'image', dataUrl: croppedDataUrl, id: item?.id, injectionId },
           activeTab.id
         );
 
       } else if (mode === 'ocr') {
         // Request offscreen to perform OCR
+        console.count("[OCR] start");
         logger.info('Background ➔ Offscreen: Dispatching RUN_OCR action to offscreen');
         let ocrResponse: any = null;
         try {
@@ -924,9 +1023,10 @@ export default defineBackground(() => {
         }
 
         // Route OCR text into the correct AI tab (auto or popup-selected)
-        logger.info('Background: Routing OCR text to AI tab via routeInjection');
+        const ocrInjectionId = 'inj-ocr-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+        logger.info(`Background: Routing OCR text (injectionId: ${ocrInjectionId}) to AI tab via routeInjection`);
         await routeInjection(
-          { type: 'text', data: ocrText, id: item?.id },
+          { type: 'text', data: ocrText, id: item?.id, injectionId: ocrInjectionId },
           activeTab.id
         );
       }

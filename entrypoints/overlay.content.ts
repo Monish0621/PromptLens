@@ -4,7 +4,24 @@ const logger = createLogger('Overlay');
 
 export default defineContentScript({
   matches: ['<all_urls>'],
+  allFrames: false,
   main() {
+    console.log("[Overlay] Script Loaded", {
+        href: window.location.href,
+        isTopFrame: window.top === window.self,
+        frameElement: window.frameElement,
+        origin: window.location.origin
+    });
+
+    console.log("[Overlay] main()", {
+        href: window.location.href,
+        isTopFrame: window.top === window.self
+    });
+
+    if (window.top !== window.self) {
+      return; // Restrict overlay to top-level window context only
+    }
+
     if ((window as any).__llmContextCaptureOverlayLoaded) {
       console.log('LLM Context Capture overlay script already loaded, skipping registration.');
       return;
@@ -28,6 +45,10 @@ export default defineContentScript({
       }
 
       if (message.action === 'ACTIVATE_OVERLAY') {
+        console.log("[Overlay] ACTIVATE_OVERLAY", {
+            href: location.href,
+            isTopFrame: window.top === window.self
+        });
         logger.info(`Message received: ACTIVATE_OVERLAY (mode="${message.mode || 'snip'}")`);
         if (isOverlayActive) {
           cleanup();
@@ -85,7 +106,7 @@ export default defineContentScript({
 
     /**
      * Render the Share Sheet floating panel in the top-right corner of the webpage
-     * Matches the exact visual design of the extension popup header + destination selector.
+     * Polished for Milestone 1: Compact preview, smooth motion, success feedback, and keyboard accessibility.
      */
     function renderShareSheet(payload: any, candidates: Array<{ tabId: number; name: string; title: string; favIconUrl?: string }>) {
       cleanupShareSheet();
@@ -114,6 +135,10 @@ export default defineContentScript({
           margin: 0;
           padding: 0;
         }
+        *:focus-visible {
+          outline: 2px solid #818cf8 !important;
+          outline-offset: 2px !important;
+        }
         .sharesheet-panel {
           background: #0f172a;
           border: 1px solid #1e293b;
@@ -125,9 +150,12 @@ export default defineContentScript({
           color: #f8fafc;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
           user-select: none;
-          animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .sharesheet-panel.exiting {
+          animation: slideOutRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         @keyframes slideInRight {
           from {
@@ -139,12 +167,22 @@ export default defineContentScript({
             opacity: 1;
           }
         }
+        @keyframes slideOutRight {
+          from {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          to {
+            transform: translateX(120%);
+            opacity: 0;
+          }
+        }
         .header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           border-bottom: 1px solid #1e293b;
-          padding-bottom: 12px;
+          padding-bottom: 10px;
         }
         .header-left {
           display: flex;
@@ -152,8 +190,8 @@ export default defineContentScript({
           gap: 10px;
         }
         .logo-box {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           border-radius: 8px;
           background: #4f46e5;
           display: flex;
@@ -163,8 +201,8 @@ export default defineContentScript({
           flex-shrink: 0;
         }
         .sparkle-icon {
-          width: 18px;
-          height: 18px;
+          width: 16px;
+          height: 16px;
           color: #e0e7ff;
         }
         .title-container {
@@ -191,18 +229,94 @@ export default defineContentScript({
           background: rgba(99, 102, 241, 0.15);
           color: #818cf8;
           border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        /* Capture Preview Box Styling */
+        .preview-container {
+          background: #1e293b;
+          border: 1px solid #334155;
+          border-radius: 10px;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .preview-badge {
+          font-size: 10px;
+          font-weight: 700;
+          color: #818cf8;
           display: flex;
           align-items: center;
           gap: 4px;
         }
+        .preview-thumb-box {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          background: #0f172a;
+          border: 1px solid #334155;
+          border-radius: 8px;
+          padding: 6px;
+        }
+        .preview-img {
+          width: 56px;
+          height: 48px;
+          object-fit: cover;
+          border-radius: 6px;
+          border: 1px solid #334155;
+          background: #000000;
+          flex-shrink: 0;
+        }
+        .preview-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .preview-meta-title {
+          font-size: 11px;
+          font-weight: 600;
+          color: #f8fafc;
+        }
+        .preview-meta-sub {
+          font-size: 9px;
+          color: #94a3b8;
+          font-family: monospace;
+        }
+        .ocr-preview-box {
+          position: relative;
+          background: #0f172a;
+          border: 1px solid #334155;
+          border-radius: 8px;
+          padding: 8px 10px;
+          max-height: 70px;
+          overflow: hidden;
+        }
+        .ocr-text {
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+          font-size: 10.5px;
+          line-height: 1.45;
+          color: #e2e8f0;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+        .ocr-fade {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 24px;
+          background: linear-gradient(to bottom, transparent, #0f172a);
+          pointer-events: none;
+        }
+
         .selector-card {
           border: 1px solid rgba(99, 102, 241, 0.3);
           background: rgba(30, 27, 75, 0.3);
           border-radius: 12px;
-          padding: 12px;
+          padding: 10px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
         }
         .selector-header {
           display: flex;
@@ -213,13 +327,13 @@ export default defineContentScript({
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 700;
           color: #e2e8f0;
         }
         .send-icon {
-          width: 14px;
-          height: 14px;
+          width: 13px;
+          height: 13px;
           color: #818cf8;
         }
         .close-icon-btn {
@@ -240,14 +354,14 @@ export default defineContentScript({
           display: flex;
           flex-direction: column;
           gap: 6px;
-          max-height: 200px;
+          max-height: 180px;
           overflow-y: auto;
         }
         .candidate-item {
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 8px 10px;
+          padding: 7px 10px;
           border-radius: 8px;
           border: 1px solid rgba(51, 65, 85, 0.6);
           background: rgba(30, 41, 59, 0.4);
@@ -268,10 +382,14 @@ export default defineContentScript({
           accent-color: #6366f1;
           cursor: pointer;
           flex-shrink: 0;
+          transition: transform 0.15s ease;
+        }
+        .checkbox:active {
+          transform: scale(0.9);
         }
         .favicon {
-          width: 16px;
-          height: 16px;
+          width: 15px;
+          height: 15px;
           border-radius: 3px;
           flex-shrink: 0;
           object-fit: contain;
@@ -281,7 +399,7 @@ export default defineContentScript({
           min-width: 0;
         }
         .name {
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 600;
           color: #f8fafc;
         }
@@ -301,7 +419,7 @@ export default defineContentScript({
         .btn {
           padding: 8px 12px;
           border-radius: 8px;
-          font-size: 12px;
+          font-size: 11.5px;
           font-weight: 700;
           cursor: pointer;
           border: none;
@@ -311,11 +429,14 @@ export default defineContentScript({
           justify-content: center;
           gap: 6px;
         }
+        .btn:active:not(:disabled) {
+          transform: scale(0.97);
+        }
         .btn-cancel {
           background: #1e293b;
           color: #94a3b8;
           border: 1px solid #334155;
-          width: 80px;
+          width: 76px;
         }
         .btn-cancel:hover {
           background: #334155;
@@ -327,13 +448,18 @@ export default defineContentScript({
           color: #ffffff;
           box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
         }
-        .btn-send:hover {
+        .btn-send:hover:not(:disabled) {
           background: #4338ca;
         }
         .btn-send:disabled {
-          opacity: 0.4;
+          opacity: 0.45;
           cursor: not-allowed;
           box-shadow: none;
+        }
+        .btn-send.btn-success {
+          background: #10b981 !important;
+          color: #ffffff !important;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
         }
         .spinner {
           width: 12px;
@@ -350,6 +476,61 @@ export default defineContentScript({
 
       const panel = document.createElement('div');
       panel.className = 'sharesheet-panel';
+
+      // Build Capture Preview Section (PART 1)
+      let previewHtml = '';
+      if (payload?.type === 'image' && payload?.dataUrl) {
+        const w = payload.width || 1920;
+        const h = payload.height || 1080;
+        previewHtml = `
+          <div class="preview-container">
+            <div class="preview-badge">📷 Screenshot Preview</div>
+            <div class="preview-thumb-box">
+              <img src="${payload.dataUrl}" class="preview-img" alt="Capture preview" />
+              <div class="preview-meta">
+                <div class="preview-meta-title">${w} × ${h}</div>
+                <div class="preview-meta-sub">Captured just now</div>
+              </div>
+            </div>
+          </div>
+        `;
+      } else if (payload?.type === 'text' && (payload?.data || payload?.textPreview)) {
+        const rawText = (payload.data || payload.textPreview || '').trim();
+        const firstLines = rawText.split('\n').slice(0, 4).join('\n');
+        previewHtml = `
+          <div class="preview-container">
+            <div class="preview-badge">📄 OCR Preview</div>
+            <div class="ocr-preview-box">
+              <pre class="ocr-text">${escapeHtml(firstLines)}</pre>
+              <div class="ocr-fade"></div>
+            </div>
+          </div>
+        `;
+      } else if (payload?.type === 'video') {
+        const w = payload.width || 1920;
+        const h = payload.height || 1080;
+        previewHtml = `
+          <div class="preview-container">
+            <div class="preview-badge">🎥 Tab Recording</div>
+            <div class="preview-thumb-box">
+              <div class="preview-meta">
+                <div class="preview-meta-title">Duration: 00:15 (${w} × ${h})</div>
+                <div class="preview-meta-sub">Size: ~1.2 MB</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function escapeHtml(text: string) {
+        return text.replace(/[&<>"']/g, m => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[m] || m));
+      }
 
       // Header matching Extension Popup Top Section
       panel.innerHTML = `
@@ -368,6 +549,8 @@ export default defineContentScript({
           <div class="badge">Share Sheet</div>
         </div>
 
+        ${previewHtml}
+
         <div class="selector-card">
           <div class="selector-header">
             <div class="selector-title">
@@ -376,14 +559,14 @@ export default defineContentScript({
               </svg>
               <span>Send Capture To</span>
             </div>
-            <button class="close-icon-btn" id="closeBtn">&times;</button>
+            <button class="close-icon-btn" id="closeBtn" aria-label="Close Share Sheet">&times;</button>
           </div>
 
           <div class="candidates-list" id="candidatesList"></div>
 
           <div class="actions">
-            <button class="btn btn-cancel" id="cancelBtn">Cancel</button>
-            <button class="btn btn-send" id="sendBtn"></button>
+            <button class="btn btn-cancel" id="cancelBtn" tabIndex="0">Cancel</button>
+            <button class="btn btn-send" id="sendBtn" tabIndex="0"></button>
           </div>
         </div>
       `;
@@ -405,6 +588,7 @@ export default defineContentScript({
           const item = document.createElement('label');
           const isSelected = selectedIds.has(c.tabId);
           item.className = `candidate-item ${isSelected ? 'selected' : ''}`;
+          item.tabIndex = 0;
 
           const cb = document.createElement('input');
           cb.type = 'checkbox';
@@ -419,6 +603,15 @@ export default defineContentScript({
             }
             item.className = `candidate-item ${cb.checked ? 'selected' : ''}`;
             updateSendButtonText();
+          });
+
+          // Keyboard space to toggle
+          item.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+              e.preventDefault();
+              cb.checked = !cb.checked;
+              cb.dispatchEvent(new Event('change'));
+            }
           });
 
           const iconHtml = c.favIconUrl
@@ -441,19 +634,29 @@ export default defineContentScript({
 
       renderCandidates();
 
+      function closeWithAnimation() {
+        panel.classList.add('exiting');
+        setTimeout(cleanupShareSheet, 200);
+      }
+
       // Handlers
-      cancelBtn.onclick = cleanupShareSheet;
-      closeBtn.onclick = cleanupShareSheet;
+      cancelBtn.onclick = closeWithAnimation;
+      closeBtn.onclick = closeWithAnimation;
 
       // Close when clicking outside the panel
       const handleOutsideClick = (e: MouseEvent) => {
         if (shareSheetHost && !e.composedPath().includes(panel)) {
-          cleanupShareSheet();
+          closeWithAnimation();
         }
       };
 
       const handleKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') cleanupShareSheet();
+        if (e.key === 'Escape') {
+          closeWithAnimation();
+        }
+        if (e.key === 'Enter' && selectedIds.size > 0 && !sendBtn.disabled) {
+          sendBtn.click();
+        }
       };
 
       setTimeout(() => {
@@ -464,7 +667,7 @@ export default defineContentScript({
       sendBtn.onclick = async () => {
         if (selectedIds.size === 0) return;
         sendBtn.disabled = true;
-        sendBtn.innerHTML = `<span class="spinner"></span> Injecting…`;
+        sendBtn.innerHTML = `<span class="spinner"></span> Sending...`;
 
         try {
           const response = await chrome.runtime.sendMessage({
@@ -473,12 +676,15 @@ export default defineContentScript({
             payload
           });
           logger.info(`Share Sheet injection dispatched: response=${JSON.stringify(response)}`);
-        } catch (err: any) {
-          logger.error('Share Sheet dispatch error: ' + err.message);
-        } finally {
+          
+          // Remove event listeners and trigger immediate exit animation
           window.removeEventListener('click', handleOutsideClick);
           window.removeEventListener('keydown', handleKey);
-          cleanupShareSheet();
+          closeWithAnimation();
+        } catch (err: any) {
+          logger.error('Share Sheet dispatch error: ' + err.message);
+          sendBtn.disabled = false;
+          updateSendButtonText();
         }
       };
 
@@ -622,6 +828,13 @@ export default defineContentScript({
       if (!isDragging) return;
       isDragging = false;
 
+      console.count("[Overlay] onMouseUp");
+      console.log("[Overlay] onMouseUp()", {
+          href: location.href,
+          isTopFrame: window.top === window.self,
+          timestamp: Date.now()
+      });
+
       const currentX = e.clientX;
       const currentY = e.clientY;
 
@@ -633,18 +846,26 @@ export default defineContentScript({
       cleanup();
 
       if (w > 5 && h > 5) {
+        const coords = {
+          x,
+          y,
+          width: w,
+          height: h,
+          devicePixelRatio: window.devicePixelRatio || 1
+        };
+
+        console.log("[Overlay] REGION_SELECTED", {
+            href: location.href,
+            isTopFrame: window.top === window.self,
+            coords
+        });
+        console.count("[Overlay] REGION_SELECTED");
         logger.info(`Selection completed: x=${x}, y=${y}, width=${w}, height=${h}`);
         logger.info('Overlay ➔ Background: Sending REGION_SELECTED');
         chrome.runtime.sendMessage({
           action: 'REGION_SELECTED',
           mode,
-          coords: {
-            x,
-            y,
-            width: w,
-            height: h,
-            devicePixelRatio: window.devicePixelRatio || 1
-          }
+          coords
         });
       } else {
         logger.warn('Selection box too small, cancelled');

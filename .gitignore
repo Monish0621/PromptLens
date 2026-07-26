@@ -30,3 +30,5 @@ web-ext.config.ts
 .env.*
 !.env.example
 
+# Temporary Scratch & Test Profile directories
+scratch/

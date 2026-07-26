@@ -16,6 +16,20 @@ export default defineConfig({
       'tabCapture',
       'clipboardWrite'
     ],
+    host_permissions: [
+      '*://chatgpt.com/*',
+      '*://*.chatgpt.com/*',
+      '*://claude.ai/*',
+      '*://*.claude.ai/*',
+      '*://gemini.google.com/*',
+      '*://grok.com/*',
+      '*://*.grok.com/*',
+      '*://x.com/*',
+      '*://*.x.com/*',
+      '*://perplexity.ai/*',
+      '*://*.perplexity.ai/*',
+      '<all_urls>'
+    ],
     // Required for Tesseract.js WebAssembly compilation inside the offscreen document.
     // tesseract-core.wasm.js calls WebAssembly.instantiate() internally, which Chrome
     // blocks under the default MV3 CSP unless 'wasm-unsafe-eval' is explicitly added.

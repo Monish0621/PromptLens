@@ -659,16 +659,23 @@ export default function App() {
         {/* History List */}
         <div className="max-h-[190px] overflow-y-auto pr-1 flex flex-col gap-2 scrollbar-thin">
           {history.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center border border-dashed border-slate-800 bg-slate-950/20 rounded-lg">
-              <Camera className="w-7 h-7 text-slate-700" />
-              <p className="text-[11px] text-slate-400 mt-1.5">No screenshot snippets in storage.</p>
-              <p className="text-[9px] text-slate-500">Captured items are kept in memory until tab is closed.</p>
+            <div className="flex flex-col items-center justify-center py-7 px-4 text-center border border-dashed border-slate-800 bg-slate-950/30 rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-slate-850 border border-slate-750 flex items-center justify-center mb-2.5 text-indigo-400 shadow-inner">
+                <Camera className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-bold text-slate-200">No captures yet</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">Take your first screenshot using</p>
+              <div className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700/80 text-[10px] font-mono font-semibold text-indigo-300 shadow-sm">
+                <Camera className="w-3 h-3 text-indigo-400" />
+                <span>Alt + S</span>
+              </div>
             </div>
           ) : (
             history.map((item) => (
               <div 
                 key={item.id} 
-                className="flex items-center gap-3 p-2 bg-slate-850 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700/80 rounded-lg group transition duration-150"
+                title={`Type: ${item.type.toUpperCase()}\nCaptured: ${new Date(item.timestamp).toLocaleString()}\nStatus: ${item.type === 'text' ? 'OCR Extracted' : 'Visual Snapshot'}`}
+                className="flex items-center gap-3 p-2 bg-slate-850 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/30 rounded-lg group transition duration-150 relative"
               >
                 {/* Visual Thumbnail */}
                 <div className="w-11 h-11 bg-slate-900 border border-slate-750 rounded-md overflow-hidden flex items-center justify-center shrink-0">
@@ -676,7 +683,7 @@ export default function App() {
                     <img 
                       src={item.dataUrl} 
                       alt="Capture preview" 
-                      className="w-full h-full object-cover select-none"
+                      className="w-full h-full object-cover select-none transition-transform group-hover:scale-105"
                     />
                   )}
                   {item.type === 'text' && (
@@ -708,7 +715,7 @@ export default function App() {
                   <button
                     onClick={() => handleCopyToClipboard(item)}
                     title="Copy to Clipboard"
-                    className="p-1.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
+                    className="p-1.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                   >
                     {copiedId === item.id ? (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -721,7 +728,7 @@ export default function App() {
                   <button
                     onClick={() => handleDownload(item)}
                     title="Download to File"
-                    className="p-1.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer"
+                    className="p-1.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                   >
                     <Download className="w-3.5 h-3.5" />
                   </button>
@@ -731,7 +738,7 @@ export default function App() {
                     onClick={() => handleReinject(item)}
                     disabled={!activeSite?.supported}
                     title={activeSite?.supported ? `Inject into ${activeSite.name}` : 'Inject (Not supported in current tab)'}
-                    className={`p-1.5 rounded transition border ${
+                    className={`p-1.5 rounded transition border active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                       activeSite?.supported 
                         ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 hover:border-indigo-400 shadow-md shadow-indigo-600/10 cursor-pointer' 
                         : 'bg-slate-800 text-slate-500 border-slate-750 cursor-not-allowed opacity-50'
@@ -748,7 +755,7 @@ export default function App() {
                   <button
                     onClick={() => handleDeleteItem(item.id)}
                     title="Delete item"
-                    className="p-1.5 rounded hover:bg-rose-950/40 text-slate-450 hover:text-rose-400 transition cursor-pointer border border-transparent hover:border-rose-900/40"
+                    className="p-1.5 rounded hover:bg-rose-950/40 text-slate-450 hover:text-rose-400 transition cursor-pointer border border-transparent hover:border-rose-900/40 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
