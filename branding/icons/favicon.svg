@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="none">
+  <!-- Top-Left Corner -->
+  <path d="M 2 5 V 3 A 1 1 0 0 1 3 2 H 5" stroke="#2563EB" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Top-Right Corner -->
+  <path d="M 11 2 H 13 A 1 1 0 0 1 14 3 V 5" stroke="#2563EB" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Bottom-Right Corner -->
+  <path d="M 14 11 V 13 A 1 1 0 0 1 13 14 H 11" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Bottom-Left Corner -->
+  <path d="M 5 14 H 3 A 1 1 0 0 1 2 13 V 11" stroke="#7C3AED" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Simplified Lens Ring -->
+  <circle cx="8" cy="8" r="3.3" stroke="#00D8F6" stroke-width="1.2" fill="none" />
+  <circle cx="8" cy="8" r="1.8" fill="#1E1B4B" />
+  <rect x="8.5" y="7" width="0.8" height="0.8" rx="0.4" fill="#FFFFFF" />
+</svg>

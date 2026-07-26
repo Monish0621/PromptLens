@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" width="360" height="64" fill="none">
+  <defs>
+    <!-- Wordmark Lens Gradient: Cyan to Electric Blue to Purple -->
+    <linearGradient id="wordmark-lens-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00D8F6" />
+      <stop offset="40%" stop-color="#2563EB" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+  </defs>
+
+  <text x="0" y="48" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="46" font-weight="700" letter-spacing="-1.5" fill="#0F172A">Prompt<tspan fill="url(#wordmark-lens-gradient)">Lens</tspan></text>
+</svg>

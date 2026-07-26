@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 88" width="480" height="88" fill="none">
+  <!-- Focus Frame Symbol -->
+  <g transform="translate(0, 0)">
+    <path d="M 16 28 V 20 C 16 17.239 18.239 15 21 15 H 29" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 61 15 H 69 C 71.761 15 74 17.239 74 20 V 28" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 74 61 V 69 C 74 71.761 71.761 74 69 74 H 61" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 29 74 H 21 C 18.239 74 16 71.761 16 69 V 61" stroke="#FFFFFF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
+
+    <circle cx="45" cy="44.5" r="17" stroke="#FFFFFF" stroke-width="4.5" />
+    <circle cx="45" cy="44.5" r="11" fill="#FFFFFF" opacity="0.3" />
+    <circle cx="49" cy="40.5" r="2.8" fill="#FFFFFF" />
+  </g>
+
+  <!-- Typography Block -->
+  <g transform="translate(104, 0)">
+    <text x="0" y="52" font-family="'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="44" font-weight="700" letter-spacing="-1.2" fill="#FFFFFF">Prompt<tspan font-weight="400">Lens</tspan></text>
+    <text x="2" y="76" font-family="'Inter', -apple-system, BlinkMacSystemFont, sans-serif" font-size="15" font-weight="400" letter-spacing="0.2" fill="#FFFFFF" opacity="0.7">Capture. Understand. Prompt.</text>
+  </g>
+</svg>

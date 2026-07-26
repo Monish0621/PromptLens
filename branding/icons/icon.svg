@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
+  <defs>
+    <linearGradient id="ic-frame-grad-v2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB" />
+      <stop offset="40%" stop-color="#2563EB" />
+      <stop offset="75%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#7C3AED" />
+    </linearGradient>
+    <linearGradient id="ic-lens-grad-v2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00D8F6" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+  </defs>
+
+  <!-- Dark Slate Background Container (#0F172A) -->
+  <rect width="128" height="128" rx="26" fill="#0F172A" />
+
+  <!-- Dominant Focus Frame Brackets -->
+  <path d="M 26 42 V 32 C 26 28.686 28.686 26 32 26 H 42" stroke="#2563EB" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 86 26 H 96 C 99.314 26 102 28.686 102 32 V 42" stroke="#2563EB" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 102 86 V 96 C 102 99.314 99.314 102 96 102 H 86" stroke="url(#ic-frame-grad-v2)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 42 102 H 32 C 28.686 102 26 99.314 26 96 V 86" stroke="url(#ic-frame-grad-v2)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Supporting Optical Lens -->
+  <circle cx="64" cy="64" r="21" stroke="url(#ic-lens-grad-v2)" stroke-width="5.5" fill="none" />
+  <circle cx="64" cy="64" r="13" fill="#1E1B4B" />
+  <circle cx="68.5" cy="59.5" r="3" fill="#FFFFFF" />
+</svg>
