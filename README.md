@@ -1,3 +1,5 @@
+<div align="center">
+
 # PromptLens
 
 > **Capture. Understand. Prompt.**
@@ -7,7 +9,13 @@
 [![WXT Framework](https://img.shields.io/badge/Framework-WXT%20v0.20-red)](https://wxt.dev/)
 [![Chrome Extension](https://img.shields.io/badge/Manifest-MV3-green?logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 
-![PromptLens Hero](docs/images/hero.png)
+<br />
+
+<p align="center">
+  <img src="docs/images/hero.png" alt="PromptLens Hero" width="100%" />
+</p>
+
+</div>
 
 Capture screenshots, extract text locally using OCR, record browser workflows, and send structured context directly to ChatGPT, Claude, Gemini, Grok, and Perplexity.
 
@@ -48,8 +56,9 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 
 ### 1. Main Dashboard & Workflow
 
-![PromptLens Popup](docs/images/hero.png)
-
+<p align="center">
+  <img src="docs/images/hero.png" alt="PromptLens Popup" width="100%" />
+</p>
 *PromptLens popup showcasing the complete capture workflow.*
 
 ---
@@ -72,16 +81,14 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 
 ### 4. Local WebAssembly OCR Demo
 
-<video src="docs/images/ocr-demo.mp4" controls width="100%"></video>
-
+![Local WebAssembly OCR Demo](docs/images/ocr-demo.gif)
 *Watch PromptLens extract structured text locally using WebAssembly OCR.*
 
 ---
 
 ### 5. Tab Screen Recording Demo
 
-<video src="docs/images/video-recording.mp4" controls width="100%"></video>
-
+![Tab Screen Recording Demo](docs/images/video-recording.gif)
 *Record browser workflows and prepare them for AI-assisted analysis.*
 
 ---
