@@ -49,6 +49,7 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 ### 1. Main Dashboard & Workflow
 
 ![PromptLens Popup](docs/images/hero.png)
+
 *PromptLens popup showcasing the complete capture workflow.*
 
 ---
@@ -56,6 +57,7 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 ### 2. Precision Region Selection
 
 ![Capture Region](docs/images/capture-region.png)
+
 *Select exactly the content you need from any webpage.*
 
 ---
@@ -63,6 +65,7 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 ### 3. Multi-Tab AI Injection
 
 ![AI Injection](docs/images/ai-injection.png)
+
 *Send structured context directly into supported AI assistants.*
 
 ---
@@ -70,6 +73,7 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 ### 4. Local WebAssembly OCR Demo
 
 <video src="docs/images/ocr-demo.mp4" controls width="100%"></video>
+
 *Watch PromptLens extract structured text locally using WebAssembly OCR.*
 
 ---
@@ -77,6 +81,7 @@ Access, re-copy, or dispatch recent OCR extractions and video clips directly fro
 ### 5. Tab Screen Recording Demo
 
 <video src="docs/images/video-recording.mp4" controls width="100%"></video>
+
 *Record browser workflows and prepare them for AI-assisted analysis.*
 
 ---
