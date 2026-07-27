@@ -28,7 +28,7 @@ Manual typing leads to syntax errors, while saving raw screenshots clutter your 
 ## Features
 
 ### 🔍 Local WebAssembly OCR
-Extracts text locally within your browser using a bundled WebAssembly engine. Features dynamic profile retries for C++, Python, TypeScript, JSON, YAML, and Terminal outputs.
+Extracts text locally within your browser using a bundled WebAssembly engine. Features dynamic profile retries for C++, Python, TypeScript, JSON and YAML outputs.
 
 ### 🎥 Browser Tab Screen Recording
 Record tab video streams with unlimited duration and a lightweight floating controller for seamless AI video analysis workflows.
