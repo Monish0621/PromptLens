@@ -23,7 +23,7 @@ export default defineContentScript({
     }
 
     if ((window as any).__llmContextCaptureOverlayLoaded) {
-      console.log('LLM Context Capture overlay script already loaded, skipping registration.');
+      console.log('PromptLens overlay script already loaded, skipping registration.');
       return;
     }
     (window as any).__llmContextCaptureOverlayLoaded = true;
@@ -38,7 +38,7 @@ export default defineContentScript({
     let isDragging = false;
 
     // Listen for messages from the background script
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
       if (message.action === 'PING_OVERLAY') {
         sendResponse({ pong: true });
         return false;
@@ -100,7 +100,33 @@ export default defineContentScript({
         sendResponse({ status: 'displayed' });
         return false;
       }
+
+      if (message.action === 'SHOW_FLOATING_CONTROLLER') {
+        logger.info('[CONTENT] Message received: SHOW_FLOATING_CONTROLLER');
+        initFloatingController(message.startTime || Date.now());
+        sendResponse({ status: 'displayed' });
+        return false;
+      }
+
+      if (message.action === 'HIDE_FLOATING_CONTROLLER') {
+        logger.info('[CONTENT] Message received: HIDE_FLOATING_CONTROLLER');
+        cleanupFloatingController();
+        sendResponse({ status: 'hidden' });
+        return false;
+      }
     });
+
+    // Check on startup if recording is currently active for this tab/session
+    try {
+      chrome.storage.local.get('recordingState').then((res) => {
+        const rec = (res.recordingState as any);
+        if (rec?.isRecording && rec?.startTime) {
+          initFloatingController(rec.startTime);
+        }
+      }).catch(() => {});
+    } catch (err) {
+      // Ignore errors on non-extension contexts
+    }
 
     let shareSheetHost: HTMLDivElement | null = null;
 
@@ -507,15 +533,14 @@ export default defineContentScript({
           </div>
         `;
       } else if (payload?.type === 'video') {
-        const w = payload.width || 1920;
-        const h = payload.height || 1080;
+        const title = payload.durationText || payload.textPreview || 'Tab Video Clip';
         previewHtml = `
           <div class="preview-container">
             <div class="preview-badge">🎥 Tab Recording</div>
             <div class="preview-thumb-box">
               <div class="preview-meta">
-                <div class="preview-meta-title">Duration: 00:15 (${w} × ${h})</div>
-                <div class="preview-meta-sub">Size: ~1.2 MB</div>
+                <div class="preview-meta-title">${escapeHtml(title)}</div>
+                <div class="preview-meta-sub">Recorded just now</div>
               </div>
             </div>
           </div>
@@ -542,7 +567,7 @@ export default defineContentScript({
               </svg>
             </div>
             <div class="title-container">
-              <div class="app-title">LLM Context Capture</div>
+              <div class="app-title">Prompt<span style="margin-left: 2.5px;">Lens</span></div>
               <div class="app-subtitle">Select Destination</div>
             </div>
           </div>
@@ -584,6 +609,15 @@ export default defineContentScript({
 
       function renderCandidates() {
         listEl.innerHTML = '';
+        if (candidates.length === 0) {
+          listEl.innerHTML = `
+            <div style="padding: 12px; font-size: 11px; color: #94a3b8; text-align: center; background: #1e293b50; border-radius: 8px; font-weight: 500;">
+              No active AI tabs found (ChatGPT, Claude, Gemini, etc.). Context saved to History.
+            </div>
+          `;
+          updateSendButtonText();
+          return;
+        }
         candidates.forEach(c => {
           const item = document.createElement('label');
           const isSelected = selectedIds.has(c.tabId);
@@ -904,6 +938,202 @@ export default defineContentScript({
 
       canvas = null;
       ctx = null;
+    }
+
+    let floatingControllerDiv: HTMLDivElement | null = null;
+    let floatingTimerInterval: number | null = null;
+
+    function formatElapsedTimer(seconds: number): string {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      const mm = String(mins).padStart(2, '0');
+      const ss = String(secs).padStart(2, '0');
+      return `${mm}:${ss}`;
+    }
+
+    function initFloatingController(startTime: number) {
+      if (floatingControllerDiv) {
+        cleanupFloatingController();
+      }
+
+      const savedTop = sessionStorage.getItem('pl_rec_widget_top') || '20px';
+      const savedLeft = sessionStorage.getItem('pl_rec_widget_left') || `${Math.max(20, window.innerWidth - 200)}px`;
+
+      const widget = document.createElement('div');
+      widget.id = 'promptlens-recording-controller';
+      widget.setAttribute('role', 'region');
+      widget.setAttribute('aria-label', 'PromptLens Recording Controller');
+
+      Object.assign(widget.style, {
+        position: 'fixed',
+        top: savedTop,
+        left: savedLeft,
+        zIndex: '2147483647',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        padding: '8px 14px',
+        backgroundColor: '#0F172A',
+        color: '#F8FAFC',
+        border: '1px solid #1E293B',
+        borderRadius: '24px',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+        fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+        fontSize: '13px',
+        fontWeight: '600',
+        userSelect: 'none',
+        cursor: 'grab',
+        transition: 'box-shadow 0.2s ease, opacity 0.2s ease',
+      });
+
+      widget.innerHTML = `
+        <style>
+          #promptlens-recording-controller:hover {
+            border-color: #334155 !important;
+            box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.6) !important;
+          }
+          .pl-rec-dot {
+            width: 10px;
+            height: 10px;
+            background-color: #EF4444;
+            border-radius: 50%;
+            animation: pl-pulse 1.5s infinite ease-in-out;
+            flex-shrink: 0;
+          }
+          @keyframes pl-pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+          }
+          .pl-rec-timer {
+            font-family: 'JetBrains Mono', monospace, ui-monospace, monospace;
+            font-size: 13px;
+            color: #F8FAFC;
+            letter-spacing: 0.5px;
+            min-width: 42px;
+          }
+          .pl-rec-stop-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            background: #EF4444;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 12px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+          }
+          .pl-rec-stop-btn:hover {
+            background-color: #DC2626;
+            transform: scale(1.03);
+          }
+          .pl-rec-stop-btn:focus-visible {
+            outline: 2px solid #60A5FA;
+            outline-offset: 2px;
+          }
+          .pl-rec-stop-icon {
+            width: 8px;
+            height: 8px;
+            background-color: #FFFFFF;
+            border-radius: 1px;
+          }
+        </style>
+        <div class="pl-rec-dot"></div>
+        <div class="pl-rec-timer" id="pl-timer-text">00:00</div>
+        <button class="pl-rec-stop-btn" id="pl-stop-btn" aria-label="Stop Recording" tabIndex="0">
+          <div class="pl-rec-stop-icon"></div>
+          <span>STOP</span>
+        </button>
+      `;
+
+      document.body.appendChild(widget);
+      floatingControllerDiv = widget;
+
+      const timerTextEl = widget.querySelector('#pl-timer-text');
+      const updateTimer = () => {
+        const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+        if (timerTextEl) {
+          timerTextEl.textContent = formatElapsedTimer(elapsed);
+        }
+      };
+      updateTimer();
+      floatingTimerInterval = window.setInterval(updateTimer, 1000);
+
+      const stopBtn = widget.querySelector('#pl-stop-btn');
+      if (stopBtn) {
+        stopBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          logger.info('[Overlay] Stop clicked from floating recording controller');
+          chrome.runtime.sendMessage({ action: 'STOP_TAB_RECORDING' });
+        });
+        stopBtn.addEventListener('keydown', (e: any) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.stopPropagation();
+            e.preventDefault();
+            logger.info('[Overlay] Stop triggered via keyboard from floating recording controller');
+            chrome.runtime.sendMessage({ action: 'STOP_TAB_RECORDING' });
+          }
+        });
+      }
+
+      let isDraggingWidget = false;
+      let dragOffsetX = 0;
+      let dragOffsetY = 0;
+
+      widget.addEventListener('mousedown', (e: MouseEvent) => {
+        if ((e.target as HTMLElement).closest('.pl-rec-stop-btn')) return;
+        if (e.button !== 0) return;
+
+        isDraggingWidget = true;
+        widget.style.cursor = 'grabbing';
+        dragOffsetX = e.clientX - widget.getBoundingClientRect().left;
+        dragOffsetY = e.clientY - widget.getBoundingClientRect().top;
+        e.preventDefault();
+      });
+
+      const onWidgetMouseMove = (e: MouseEvent) => {
+        if (!isDraggingWidget || !floatingControllerDiv) return;
+
+        let newLeft = e.clientX - dragOffsetX;
+        let newTop = e.clientY - dragOffsetY;
+
+        const maxLeft = window.innerWidth - floatingControllerDiv.offsetWidth - 10;
+        const maxTop = window.innerHeight - floatingControllerDiv.offsetHeight - 10;
+        newLeft = Math.max(10, Math.min(newLeft, maxLeft));
+        newTop = Math.max(10, Math.min(newTop, maxTop));
+
+        floatingControllerDiv.style.left = `${newLeft}px`;
+        floatingControllerDiv.style.top = `${newTop}px`;
+
+        sessionStorage.setItem('pl_rec_widget_left', `${newLeft}px`);
+        sessionStorage.setItem('pl_rec_widget_top', `${newTop}px`);
+      };
+
+      const onWidgetMouseUp = () => {
+        if (isDraggingWidget) {
+          isDraggingWidget = false;
+          if (floatingControllerDiv) {
+            floatingControllerDiv.style.cursor = 'grab';
+          }
+        }
+      };
+
+      window.addEventListener('mousemove', onWidgetMouseMove);
+      window.addEventListener('mouseup', onWidgetMouseUp);
+    }
+
+    function cleanupFloatingController() {
+      if (floatingTimerInterval) {
+        clearInterval(floatingTimerInterval);
+        floatingTimerInterval = null;
+      }
+      if (floatingControllerDiv) {
+        floatingControllerDiv.remove();
+        floatingControllerDiv = null;
+      }
     }
   }
 });

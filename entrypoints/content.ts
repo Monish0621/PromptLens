@@ -24,7 +24,7 @@ export default defineContentScript({
     }
     (window as any).__LLM_CONTEXT_CAPTURE_CONTENT_INITIALIZED__ = true;
 
-    logger.info(`LLM Context Capture content script loaded on: ${window.location.hostname}`);
+    logger.info(`PromptLens content script loaded on: ${window.location.hostname}`);
 
     // Detect AI provider name
     const host = window.location.hostname.toLowerCase();
@@ -44,8 +44,8 @@ export default defineContentScript({
         url: window.location.href,
         title: document.title || provider,
         timestamp: Date.now()
-      }).catch(err => {
-        logger.debug('[CONTENT] REGISTER_AI_TAB send notice: ' + err.message);
+      }).catch((err: any) => {
+        logger.debug('[CONTENT] REGISTER_AI_TAB send notice: ' + (err?.message || err));
       });
     };
     registerSelf();
@@ -72,7 +72,7 @@ export default defineContentScript({
     const processedInjectionIds = new Set<string>();
 
     logger.info('[Content] Message listener initialized');
-    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
       // Liveness probe used by background to check if content script is loaded
       if (message.action === 'PING') {
         sendResponse({ pong: true });

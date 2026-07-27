@@ -171,21 +171,21 @@ export default defineBackground(() => {
       await this.reScanAllTabs();
 
       // Listen for tab removal (closing tab)
-      chrome.tabs.onRemoved.addListener((tabId) => {
+      chrome.tabs.onRemoved.addListener((tabId: number) => {
         this.unregister(tabId, 'Tab Closed');
       });
 
       // Listen for tab URL/title updates & navigation
-      chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      chrome.tabs.onUpdated.addListener((tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => {
         if (tab.url) {
           this.evaluateTab(tab);
         }
       });
 
       // Listen for tab replacement
-      chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+      chrome.tabs.onReplaced.addListener((addedTabId: number, removedTabId: number) => {
         this.unregister(removedTabId, 'Tab Replaced');
-        chrome.tabs.get(addedTabId).then(tab => {
+        chrome.tabs.get(addedTabId).then((tab: chrome.tabs.Tab) => {
           if (tab) this.evaluateTab(tab);
         }).catch(() => {});
       });
@@ -195,7 +195,7 @@ export default defineBackground(() => {
       const DEBUG_DIAGNOSTICS = true; // Development diagnostics flag
 
       if (DEBUG_DIAGNOSTICS) {
-        console.groupCollapsed('LLM Context Capture Startup');
+        console.groupCollapsed('PromptLens Startup');
         console.info('[Startup] Background service worker started');
         console.info('[Startup] Scanning existing tabs...');
       }
@@ -524,14 +524,6 @@ export default defineBackground(() => {
     logger.info('[CAPTURE] Capture completed, reading AI Tab Registry...');
     const aiTabs = await findSupportedAITabs();
 
-    if (aiTabs.length === 0) {
-      const msg = 'No supported AI tab found. Open ChatGPT, Claude, Gemini, Grok, or Perplexity in another tab.';
-      logger.warn(`routeInjection: ${msg}`);
-      await PipelineTracker.updateStep('Injection', 'FAIL', msg);
-      await PipelineTracker.complete('FAIL', msg);
-      return;
-    }
-
     logger.info(`[BACKGROUND] Registry read: ${aiTabs.length} AI tab(s) available for Share Sheet`);
     await chrome.storage.local.set({
       pendingInjection: {
@@ -555,8 +547,12 @@ export default defineBackground(() => {
         candidates: aiTabs
       });
       logger.info(`[BACKGROUND] SHOW_SHARE_SHEET successfully delivered to tab ${captureTabId}`);
+      await PipelineTracker.updateStep('Injection', 'SUCCESS', 'Share Sheet displayed for target selection');
+      await PipelineTracker.complete('SUCCESS');
     } catch (err: any) {
       logger.warn(`routeInjection: Could not send SHOW_SHARE_SHEET to capture tab ${captureTabId}: ${err.message}`);
+      await PipelineTracker.updateStep('Injection', 'PENDING', 'Context saved to history — waiting for target selection in Share Sheet');
+      await PipelineTracker.complete('SUCCESS');
     }
   }
 
@@ -631,7 +627,7 @@ export default defineBackground(() => {
     logger.debug(`Saving capture item to history session: type=${type}`);
     try {
       const result = await chrome.storage.session.get('captureHistory');
-      let history: HistoryItem[] = result.captureHistory || [];
+      let history: HistoryItem[] = (result.captureHistory as HistoryItem[]) || [];
       
       const newItem: HistoryItem = {
         id: Math.random().toString(36).substr(2, 9),
@@ -665,7 +661,7 @@ export default defineBackground(() => {
   }
 
   // Handle global extension commands (hotkeys)
-  chrome.commands.onCommand.addListener((command) => {
+  chrome.commands.onCommand.addListener((command: string) => {
     logger.info(`Global hotkey command triggered: "${command}"`);
     if (command === 'visual-snip') {
       triggerOverlay('snip');
@@ -675,13 +671,13 @@ export default defineBackground(() => {
   });
 
   // Handle extension installation & reload events to rebuild AI Tab Registry immediately
-  chrome.runtime.onInstalled.addListener((details) => {
+  chrome.runtime.onInstalled.addListener((details: chrome.runtime.InstalledDetails) => {
     logger.info(`[Startup] Extension ${details.reason} event detected. Triggering immediate AI Tab Registry rebuild...`);
     aiTabRegistry.reScanAllTabs();
   });
 
   // Main message router
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
     // 1. Coordinates received from Overlay Content Script
     if (message.action === 'REGION_SELECTED') {
       console.log("[Background] REGION_SELECTED received", {
@@ -783,7 +779,7 @@ export default defineBackground(() => {
 
       (async () => {
         const stored = await chrome.storage.local.get('pendingInjection');
-        const captureTabId = stored.pendingInjection?.captureTabId;
+        const captureTabId = (stored.pendingInjection as any)?.captureTabId;
 
         // Re-fetch candidate metadata so we have windowId for focus
         const allTabs = await findSupportedAITabs();
@@ -1100,6 +1096,35 @@ export default defineBackground(() => {
           if (response && response.success) {
             logger.info('Tab Capture session recording has started in offscreen');
             await PipelineTracker.updateStep('Recording', 'SUCCESS');
+
+            const startTime = Date.now();
+            const recState = { isRecording: true, startTime, tabId: tab.id };
+            await chrome.storage.local.set({ recordingState: recState });
+
+            // Ensure overlay script is injected before displaying floating recording controller
+            if (tab.id) {
+              ensureOverlayScriptInTab(tab.id)
+                .then((loaded) => {
+                  if (loaded && tab.id) {
+                    sendMessageToTab(tab.id, {
+                      action: 'SHOW_FLOATING_CONTROLLER',
+                      startTime
+                    }).catch((err) => {
+                      logger.debug(`[Recording] SHOW_FLOATING_CONTROLLER delivery note: ${err.message}`);
+                    });
+                  }
+                })
+                .catch((err) => {
+                  logger.debug(`[Recording] ensureOverlayScriptInTab note for floating controller: ${err.message}`);
+                });
+            }
+
+            // Broadcast recording state to runtime (popup/dashboard)
+            chrome.runtime.sendMessage({
+              action: 'RECORDING_STATE_UPDATED',
+              state: recState
+            }).catch(() => {});
+
             resolve();
           } else {
             const detail = response?.error || 'Failed to initiate recording inside offscreen document';
@@ -1117,9 +1142,39 @@ export default defineBackground(() => {
   }
 
   /**
+   * Helper to format recording duration into human-readable text for history metadata
+   */
+  function formatRecordingDuration(totalSeconds: number): string {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    if (mins === 0) {
+      return `${secs}s Recording`;
+    }
+    const ss = String(secs).padStart(2, '0');
+    return `${mins}m ${ss}s Recording`;
+  }
+
+  /**
    * Terminate recording, save the result, and clean up offscreen contexts
    */
   async function stopTabRecording() {
+    // Read active recordingState to hide floating controller and reset state
+    const storedRec = await chrome.storage.local.get('recordingState');
+    const recTabId = (storedRec.recordingState as any)?.tabId;
+    const startTime = (storedRec.recordingState as any)?.startTime;
+
+    if (recTabId) {
+      sendMessageToTab(recTabId, { action: 'HIDE_FLOATING_CONTROLLER' }).catch(() => {});
+    }
+
+    const resetState = { isRecording: false, startTime: null, tabId: null };
+    await chrome.storage.local.set({ recordingState: resetState });
+
+    chrome.runtime.sendMessage({
+      action: 'RECORDING_STATE_UPDATED',
+      state: resetState
+    }).catch(() => {});
+
     // Ensure offscreen document is active
     await setupOffscreenDocument();
 
@@ -1145,38 +1200,33 @@ export default defineBackground(() => {
     const videoDataUrl = response.videoDataUrl;
     logger.debug('Received video compilation WebM from offscreen');
     
-    // Save video to history
-    const item = await saveToHistory('video', videoDataUrl, 'Temporary 15s Tab Video Clip');
+    // Calculate actual recording duration for history metadata
+    const elapsedSeconds = startTime ? Math.max(1, Math.round((Date.now() - startTime) / 1000)) : 1;
+    const durationLabel = formatRecordingDuration(elapsedSeconds);
 
-    // Inject video into target tab DOM if supported
+    // Save video to history with actual duration metadata
+    const item = await saveToHistory('video', videoDataUrl, durationLabel);
+
+    // Open existing Share Sheet for prompt routing (no auto-injection)
+    const payload = {
+      type: 'video',
+      dataUrl: videoDataUrl,
+      id: item?.id,
+      textPreview: durationLabel,
+      durationText: durationLabel
+    };
+
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.id) {
-        logger.info('Sending INJECT_PAYLOAD to content script for tab video');
-        const injectResponse = await sendMessageToTab(tab.id, {
-          action: 'INJECT_PAYLOAD',
-          payload: {
-            type: 'video',
-            dataUrl: videoDataUrl,
-            id: item?.id
-          }
-        });
-
-        if (injectResponse && injectResponse.success) {
-          await PipelineTracker.updateStep('Injection', 'SUCCESS');
-          await PipelineTracker.complete('SUCCESS');
-        } else {
-          const detail = injectResponse?.error || 'Target editor prompt not resolved or inactive';
-          await PipelineTracker.updateStep('Injection', 'FAIL', detail);
-          await PipelineTracker.complete('FAIL', detail);
-        }
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const targetTabId = activeTab?.id || recTabId;
+      if (targetTabId) {
+        logger.info(`Opening Share Sheet for recording payload on tab ${targetTabId}`);
+        await routeInjection(payload, targetTabId);
       } else {
-        throw new Error('No active tab resolved for final injection');
+        logger.warn('No active tab resolved for Share Sheet display');
       }
     } catch (err: any) {
-      logger.warn('Could not inject video clip to active page: ' + err.message);
-      await PipelineTracker.updateStep('Injection', 'FAIL', err.message);
-      await PipelineTracker.complete('FAIL', err.message);
+      logger.warn('Could not open Share Sheet for video clip: ' + err.message);
     }
 
     // Close offscreen document

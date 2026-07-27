@@ -81,10 +81,25 @@ export default function App() {
     refreshDevStats();
     loadPendingInjection();
 
-    // Listen for real-time history and log broadcast updates
+    // Check active recording state on popup open
+    chrome.storage.local.get('recordingState').then((res) => {
+      const rec = (res.recordingState as any);
+      if (rec?.isRecording && rec?.startTime) {
+        startRecordingTimerFrom(rec.startTime);
+      }
+    }).catch(() => {});
+
+    // Listen for real-time history, log, and recording state broadcast updates
     const handleMessage = (message: any) => {
       if (message.action === 'HISTORY_UPDATED') {
         setHistory(message.history || []);
+      }
+      if (message.action === 'RECORDING_STATE_UPDATED') {
+        if (message.state?.isRecording && message.state?.startTime) {
+          startRecordingTimerFrom(message.state.startTime);
+        } else {
+          stopRecordingTimer();
+        }
       }
       if (message.action === 'RECORDING_AUTO_STOPPED') {
         stopRecordingTimer();
@@ -102,10 +117,18 @@ export default function App() {
       }
     };
 
-    // Storage change listener to ensure immediate UI sync if pendingInjection is written
+    // Storage change listener to ensure immediate UI sync if pendingInjection or recordingState is written
     const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
       if (areaName === 'local' && changes.pendingInjection) {
         loadPendingInjection();
+      }
+      if (areaName === 'local' && changes.recordingState) {
+        const state = (changes.recordingState.newValue as any);
+        if (state?.isRecording && state?.startTime) {
+          startRecordingTimerFrom(state.startTime);
+        } else {
+          stopRecordingTimer();
+        }
       }
     };
 
@@ -114,7 +137,10 @@ export default function App() {
     return () => {
       chrome.runtime.onMessage.removeListener(handleMessage);
       chrome.storage.onChanged.removeListener(handleStorageChange);
-      stopRecordingTimer();
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
     };
   }, []);
 
@@ -122,9 +148,9 @@ export default function App() {
     try {
       const res = await chrome.storage.local.get(['debugMode', 'debugLogs', 'activeTrace']);
       setDebugMode(!!res.debugMode);
-      setLogs(res.debugLogs || []);
+      setLogs((res.debugLogs as LogEntry[]) || []);
       if (res.activeTrace) {
-        setActiveTrace(res.activeTrace);
+        setActiveTrace(res.activeTrace as TraceData);
       }
     } catch (err) {
       console.error('Settings load failed:', err);
@@ -134,7 +160,7 @@ export default function App() {
   const loadHistory = async () => {
     try {
       const result = await chrome.storage.session.get('captureHistory');
-      setHistory(result.captureHistory || []);
+      setHistory((result.captureHistory as HistoryItem[]) || []);
     } catch (err) {
       console.error('Failed to load history:', err);
     }
@@ -143,7 +169,7 @@ export default function App() {
   const loadPendingInjection = async () => {
     try {
       const res = await chrome.storage.local.get('pendingInjection');
-      const pending: PendingInjection | undefined = res.pendingInjection;
+      const pending: PendingInjection | undefined = res.pendingInjection as PendingInjection | undefined;
       if (pending && pending.candidates?.length >= 1) {
         // Pre-select all candidates
         setPendingInjection(pending);
@@ -215,9 +241,9 @@ export default function App() {
 
       // 2. Load latest action stats
       const stats = await chrome.storage.local.get(['lastScreenshot', 'ocrStatus', 'injectionStatus']);
-      if (stats.lastScreenshot) setLastScreenshot(stats.lastScreenshot);
-      if (stats.ocrStatus) setOcrStatus(stats.ocrStatus);
-      if (stats.injectionStatus) setInjectionStatus(stats.injectionStatus);
+      if (stats.lastScreenshot) setLastScreenshot(stats.lastScreenshot as any);
+      if (stats.ocrStatus) setOcrStatus(stats.ocrStatus as any);
+      if (stats.injectionStatus) setInjectionStatus(stats.injectionStatus as any);
     } catch (err) {
       console.warn('Failed to refresh stats:', err);
     }
@@ -292,20 +318,18 @@ export default function App() {
   };
 
   // Video recording controls
-  const startRecordingTimer = () => {
-    setRecordingSeconds(0);
+  const startRecordingTimerFrom = (startTime: number) => {
+    if (recordingIntervalRef.current) {
+      clearInterval(recordingIntervalRef.current);
+    }
     setIsRecording(true);
     setErrorMsg(null);
-    recordingIntervalRef.current = window.setInterval(() => {
-      setRecordingSeconds((prev) => {
-        if (prev >= 14) {
-          stopRecordingTimer();
-          refreshDevStats();
-          return 15;
-        }
-        return prev + 1;
-      });
-    }, 1000);
+    const updateTimer = () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+      setRecordingSeconds(elapsed);
+    };
+    updateTimer();
+    recordingIntervalRef.current = window.setInterval(updateTimer, 1000);
   };
 
   const stopRecordingTimer = () => {
@@ -319,14 +343,14 @@ export default function App() {
   const handleStartRecording = async () => {
     logger.info('Manual tab recording start requested');
     try {
-      startRecordingTimer();
+      setErrorMsg(null);
       const response = await chrome.runtime.sendMessage({ action: 'START_TAB_RECORDING' });
       if (response && !response.success) {
         logger.error('Recording start rejected by service worker', response.error);
         setErrorMsg(response.error || 'Failed to start recording');
         stopRecordingTimer();
       } else {
-        logger.info('Recording started');
+        logger.info('Recording started successfully');
         refreshDevStats();
       }
     } catch (err: any) {
@@ -452,7 +476,7 @@ export default function App() {
     logger.debug(`Deleting item from history: id=${id}`);
     try {
       const result = await chrome.storage.session.get('captureHistory');
-      let historyList: HistoryItem[] = result.captureHistory || [];
+      let historyList: HistoryItem[] = (result.captureHistory as HistoryItem[]) || [];
       historyList = historyList.filter(item => item.id !== id);
       await chrome.storage.session.set({ captureHistory: historyList });
       setHistory(historyList);
@@ -522,32 +546,32 @@ export default function App() {
   };
 
   return (
-    <div className="w-[390px] bg-slate-900 text-slate-100 p-4 font-sans select-none flex flex-col gap-4 border border-slate-800 shadow-2xl rounded-xl max-h-[600px] overflow-y-auto scrollbar-thin">
+    <div className="w-[390px] bg-slate-900 text-slate-100 p-4 font-sans select-none flex flex-col gap-3.5 border border-slate-800 shadow-2xl rounded-2xl max-h-[600px] overflow-y-auto scrollbar-thin">
       
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <Sparkles className="w-5 h-5 text-indigo-100 animate-pulse" />
+      <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-[38px] h-[38px] rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25 border border-blue-400/30 shrink-0">
+            <Sparkles className="w-5 h-5 text-white animate-pulse" />
           </div>
-          <div>
-            <h1 className="font-bold text-sm leading-tight text-white tracking-wide">LLM Context Capture</h1>
-            <p className="text-[10px] text-slate-400">Client-Side Snipper & OCR</p>
+          <div className="flex flex-col">
+            <h1 className="font-extrabold text-base leading-none text-white tracking-tight">Prompt<span className="text-blue-400 font-semibold ml-[2.5px]">Lens</span></h1>
+            <p className="text-[11px] font-medium text-slate-400 mt-1 tracking-wide">Capture. Understand. Prompt.</p>
           </div>
         </div>
 
         {/* LLM Connection Badge */}
         {activeSite ? (
-          <div className={`px-2 py-0.5 rounded-full text-[9px] font-semibold flex items-center gap-1 ${
+          <div className={`px-2.5 py-1 rounded-full text-[9px] font-semibold flex items-center gap-1.5 transition-colors ${
             activeSite.supported 
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
           }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${activeSite.supported ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-            {activeSite.supported ? `Connected to ${activeSite.name}` : 'Capture Restricted'}
+            <span className={`w-1.5 h-1.5 rounded-full ${activeSite.supported ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
+            {activeSite.supported ? `${activeSite.name}` : 'Restricted'}
           </div>
         ) : (
-          <div className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+          <div className="px-2.5 py-1 rounded-full text-[9px] font-semibold bg-slate-800 text-slate-400 border border-slate-700/80">
             Clipboard Mode
           </div>
         )}
@@ -555,8 +579,8 @@ export default function App() {
 
       {/* Unsupported URLs Friendly Error Banner */}
       {activeSite && !activeSite.supported && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg text-xs flex flex-col gap-1.5 shadow-inner">
-          <div className="flex items-center gap-2 font-bold">
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl text-xs flex flex-col gap-1.5 shadow-inner">
+          <div className="flex items-center gap-2 font-bold text-amber-300">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>Browser Page Capture Limit</span>
           </div>
@@ -568,45 +592,112 @@ export default function App() {
 
       {/* Error Alert */}
       {errorMsg && (
-        <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-xs flex items-start gap-2 shadow-inner">
+        <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-xs flex items-start gap-2 shadow-inner">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <p className="flex-1">{errorMsg}</p>
+          <p className="flex-1 font-medium">{errorMsg}</p>
         </div>
       )}
 
+      {/* Multi-Tab Pending Injection Dispatch Banner */}
+      {pendingInjection && pendingInjection.candidates?.length > 0 && (
+        <div className="bg-gradient-to-br from-indigo-950/80 to-slate-900 border border-indigo-500/40 rounded-xl p-3.5 flex flex-col gap-2.5 shadow-lg shadow-indigo-950/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
+              <span className="text-xs font-bold text-indigo-200">Inject Captured Context</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-mono">
+              {selectedTabIds.size} of {pendingInjection.candidates.length} selected
+            </span>
+          </div>
 
+          <div className="flex flex-col gap-1.5 max-h-[110px] overflow-y-auto pr-1 scrollbar-thin">
+            {pendingInjection.candidates.map(candidate => {
+              const isChecked = selectedTabIds.has(candidate.tabId);
+              const status = injectResults[candidate.tabId];
+
+              return (
+                <div
+                  key={candidate.tabId}
+                  onClick={() => {
+                    const next = new Set(selectedTabIds);
+                    if (next.has(candidate.tabId)) next.delete(candidate.tabId);
+                    else next.add(candidate.tabId);
+                    setSelectedTabIds(next);
+                  }}
+                  className={`flex items-center justify-between p-2 rounded-lg text-xs cursor-pointer border transition-all ${
+                    isChecked
+                      ? 'bg-indigo-600/20 border-indigo-500/60 text-white'
+                      : 'bg-slate-850 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}} // handled by parent div onClick
+                      className="w-3.5 h-3.5 accent-indigo-500 rounded cursor-pointer shrink-0"
+                    />
+                    {candidate.favIconUrl ? (
+                      <img src={candidate.favIconUrl} alt="" className="w-3.5 h-3.5 shrink-0 rounded-sm" />
+                    ) : (
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    )}
+                    <span className="font-semibold truncate">{candidate.name}</span>
+                    <span className="text-[10px] text-slate-400 truncate max-w-[120px]">({candidate.title})</span>
+                  </div>
+
+                  {status === 'pending' && <span className="text-[10px] text-indigo-400 animate-pulse font-mono">Injecting...</span>}
+                  {status === 'success' && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                  {status === 'fail'    && <span className="text-[10px] text-rose-400 font-mono">Failed</span>}
+                </div>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={handleDispatchInjection}
+            disabled={selectedTabIds.size === 0 || isDispatching}
+            className="w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-bold text-xs shadow-md shadow-indigo-600/30 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          >
+            <CornerDownLeft className="w-3.5 h-3.5" />
+            {isDispatching ? 'Injecting Context...' : `Inject into ${selectedTabIds.size} Selected Tab${selectedTabIds.size > 1 ? 's' : ''}`}
+          </button>
+        </div>
+      )}
 
       {/* Quick Action Capture Buttons */}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
+        {/* Snip Region */}
         <button
           onClick={() => handleTriggerSnip('snip')}
           disabled={isRecording || (activeSite !== null && !activeSite.supported)}
-          className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700/60 hover:border-indigo-500/50 hover:shadow-indigo-500/5 transition duration-200 group text-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-blue-500/50 hover:shadow-lg hover:shadow-blue-500/10 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 group text-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <Camera className="w-6 h-6 text-indigo-400 group-hover:text-indigo-300 group-hover:scale-105 transition-transform" />
-          <span className="text-xs font-semibold text-slate-200 mt-1.5">Snip Region</span>
-          <span className="text-[9px] text-slate-400 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800 mt-1 font-mono">Alt + S</span>
+          <Camera className="w-6 h-6 text-blue-400 group-hover:text-blue-300 group-hover:scale-110 transition-transform duration-150" />
+          <span className="text-xs font-bold text-slate-200 mt-2 tracking-wide">Snip Region</span>
+          <span className="text-[9px] text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded-md border border-slate-700/80 mt-1 font-mono font-semibold">Alt + S</span>
         </button>
 
+        {/* OCR Code */}
         <button
           onClick={() => handleTriggerSnip('ocr')}
           disabled={isRecording || (activeSite !== null && !activeSite.supported)}
-          className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-800 hover:bg-slate-750 border border-slate-700/60 hover:border-purple-500/50 hover:shadow-purple-500/5 transition duration-200 group text-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700/80 hover:border-purple-500/50 hover:shadow-lg hover:shadow-purple-500/10 hover:scale-[1.01] active:scale-[0.98] transition-all duration-150 group text-center cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <FileText className="w-6 h-6 text-purple-400 group-hover:text-purple-300 group-hover:scale-105 transition-transform" />
-          <span className="text-xs font-semibold text-slate-200 mt-1.5">OCR Code</span>
-          <span className="text-[9px] text-slate-400 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-800 mt-1 font-mono">Alt + O</span>
+          <FileText className="w-6 h-6 text-purple-400 group-hover:text-purple-300 group-hover:scale-110 transition-transform duration-150" />
+          <span className="text-xs font-bold text-slate-200 mt-2 tracking-wide">OCR Code</span>
+          <span className="text-[9px] text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded-md border border-slate-700/80 mt-1 font-mono font-semibold">Alt + O</span>
         </button>
       </div>
 
-      {/* Tab Media stream Video Recorder */}
-      <div className="border border-slate-800 bg-slate-950/40 rounded-xl p-3 flex flex-col gap-2">
+      {/* Tab Media Stream Video Recorder */}
+      <div className="border border-slate-800/90 bg-slate-950/40 rounded-xl p-3 flex flex-col gap-2 shadow-inner">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <Video className="w-4 h-4 text-rose-400" />
-            <h2 className="text-xs font-bold text-slate-200">Tab Screen Recorder</h2>
+            <h2 className="text-xs font-bold text-slate-200 tracking-wide">Tab Screen Recorder</h2>
           </div>
-          <span className="text-[9px] text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded font-medium">Max 15 seconds</span>
         </div>
 
         {isRecording ? (
@@ -614,12 +705,12 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
               <span className="text-xs font-semibold text-rose-400 font-mono">
-                Recording: 0:{recordingSeconds.toString().padStart(2, '0')} / 0:15
+                Recording: {String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}
               </span>
             </div>
             <button
               onClick={handleStopRecording}
-              className="px-3 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white font-semibold text-[11px] shadow-lg shadow-rose-600/20 cursor-pointer"
+              className="px-3 py-1 rounded-md bg-rose-600 hover:bg-rose-500 active:scale-[0.96] text-white font-semibold text-[11px] shadow-lg shadow-rose-600/20 transition cursor-pointer"
             >
               Stop
             </button>
@@ -628,7 +719,7 @@ export default function App() {
           <button
             onClick={handleStartRecording}
             disabled={activeSite !== null && !activeSite.supported}
-            className="w-full py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/80 hover:border-slate-600 flex items-center justify-center gap-2 text-xs font-bold text-slate-100 hover:text-white transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 border border-slate-700/80 hover:border-slate-600 hover:scale-[1.01] active:scale-[0.98] flex items-center justify-center gap-2 text-xs font-bold text-slate-100 hover:text-white transition duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Video className="w-4 h-4 text-slate-300" />
             Record Active Tab Stream
@@ -636,13 +727,13 @@ export default function App() {
         )}
       </div>
 
-      {/* History section */}
-      <div className="flex flex-col gap-2 mt-1">
-        <div className="flex items-center justify-between">
+      {/* History Section */}
+      <div className="flex flex-col gap-2 mt-0.5">
+        <div className="flex items-center justify-between px-0.5">
           <div className="flex items-center gap-1.5 text-slate-300">
             <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-xs font-bold">Session Snippet History</span>
-            <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-1.5 py-0.2 rounded-full">
+            <span className="text-xs font-bold tracking-wide">Session Snippet History</span>
+            <span className="bg-slate-800 text-slate-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-slate-700/60">
               {history.length}
             </span>
           </div>
@@ -659,14 +750,14 @@ export default function App() {
         {/* History List */}
         <div className="max-h-[190px] overflow-y-auto pr-1 flex flex-col gap-2 scrollbar-thin">
           {history.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-7 px-4 text-center border border-dashed border-slate-800 bg-slate-950/30 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-slate-850 border border-slate-750 flex items-center justify-center mb-2.5 text-indigo-400 shadow-inner">
+            <div className="flex flex-col items-center justify-center py-7 px-4 text-center border border-dashed border-slate-800/90 bg-slate-950/30 rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-slate-800/80 border border-slate-700/80 flex items-center justify-center mb-2.5 text-blue-400 shadow-inner">
                 <Camera className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-bold text-slate-200">No captures yet</h4>
+              <h4 className="text-xs font-bold text-slate-200 tracking-wide">No captures yet</h4>
               <p className="text-[11px] text-slate-400 mt-0.5">Take your first screenshot using</p>
-              <div className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-md bg-slate-800 border border-slate-700/80 text-[10px] font-mono font-semibold text-indigo-300 shadow-sm">
-                <Camera className="w-3 h-3 text-indigo-400" />
+              <div className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 rounded-lg bg-slate-800 border border-slate-700/80 text-[10px] font-mono font-semibold text-blue-300 shadow-sm">
+                <Camera className="w-3.5 h-3.5 text-blue-400" />
                 <span>Alt + S</span>
               </div>
             </div>
@@ -675,10 +766,10 @@ export default function App() {
               <div 
                 key={item.id} 
                 title={`Type: ${item.type.toUpperCase()}\nCaptured: ${new Date(item.timestamp).toLocaleString()}\nStatus: ${item.type === 'text' ? 'OCR Extracted' : 'Visual Snapshot'}`}
-                className="flex items-center gap-3 p-2 bg-slate-850 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/30 rounded-lg group transition duration-150 relative"
+                className="flex items-center gap-3 p-2.5 bg-slate-850 hover:bg-slate-800/90 border border-slate-800 hover:border-blue-500/30 rounded-xl group transition duration-150 relative"
               >
                 {/* Visual Thumbnail */}
-                <div className="w-11 h-11 bg-slate-900 border border-slate-750 rounded-md overflow-hidden flex items-center justify-center shrink-0">
+                <div className="w-11 h-11 bg-slate-900 border border-slate-750 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
                   {item.type === 'image' && (
                     <img 
                       src={item.dataUrl} 
@@ -698,24 +789,24 @@ export default function App() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
                     <span className={`text-[10px] font-bold tracking-wider ${
-                      item.type === 'image' ? 'text-indigo-400' : item.type === 'text' ? 'text-purple-400' : 'text-rose-400'
+                      item.type === 'image' ? 'text-blue-400' : item.type === 'text' ? 'text-purple-400' : 'text-rose-400'
                     }`}>
                       {item.type === 'image' ? 'IMAGE' : item.type === 'text' ? 'OCR' : 'VIDEO'}
                     </span>
                     <span className="text-[9px] text-slate-500 font-mono">{formatTime(item.timestamp)}</span>
                   </div>
                   <p className="text-[11px] text-slate-300 truncate mt-0.5 font-sans leading-normal">
-                    {item.type === 'text' ? item.textPreview : item.type === 'image' ? 'Visual crop snapshot' : '15s WebM tab media stream'}
+                    {item.type === 'text' ? item.textPreview : item.type === 'image' ? 'Visual crop snapshot' : (item.textPreview || 'Tab Video Clip')}
                   </p>
                 </div>
 
-                {/* Quick actions panel */}
+                {/* Quick Actions Panel */}
                 <div className="flex items-center gap-1.5 shrink-0 opacity-85 group-hover:opacity-100 transition-opacity">
                   {/* Copy Button */}
                   <button
                     onClick={() => handleCopyToClipboard(item)}
                     title="Copy to Clipboard"
-                    className="p-1.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                    className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                   >
                     {copiedId === item.id ? (
                       <Check className="w-3.5 h-3.5 text-emerald-400" />
@@ -728,7 +819,7 @@ export default function App() {
                   <button
                     onClick={() => handleDownload(item)}
                     title="Download to File"
-                    className="p-1.5 rounded bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                    className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-750 text-slate-350 hover:text-white border border-slate-800 hover:border-slate-700 transition cursor-pointer active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none"
                   >
                     <Download className="w-3.5 h-3.5" />
                   </button>
@@ -738,9 +829,9 @@ export default function App() {
                     onClick={() => handleReinject(item)}
                     disabled={!activeSite?.supported}
                     title={activeSite?.supported ? `Inject into ${activeSite.name}` : 'Inject (Not supported in current tab)'}
-                    className={`p-1.5 rounded transition border active:scale-95 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
+                    className={`p-1.5 rounded-lg transition border active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:outline-none ${
                       activeSite?.supported 
-                        ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-500 hover:border-indigo-400 shadow-md shadow-indigo-600/10 cursor-pointer' 
+                        ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500 hover:border-blue-400 shadow-md shadow-blue-600/15 cursor-pointer' 
                         : 'bg-slate-800 text-slate-500 border-slate-750 cursor-not-allowed opacity-50'
                     }`}
                   >
@@ -755,7 +846,7 @@ export default function App() {
                   <button
                     onClick={() => handleDeleteItem(item.id)}
                     title="Delete item"
-                    className="p-1.5 rounded hover:bg-rose-950/40 text-slate-450 hover:text-rose-400 transition cursor-pointer border border-transparent hover:border-rose-900/40 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+                    className="p-1.5 rounded-lg hover:bg-rose-950/40 text-slate-450 hover:text-rose-400 transition cursor-pointer border border-transparent hover:border-rose-900/40 active:scale-95 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -766,156 +857,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Debug Setting Toggle Section */}
-      <div className="border-t border-slate-800 pt-3 mt-1">
-        <label className="flex items-center gap-2 cursor-pointer group text-xs text-slate-400 hover:text-slate-200">
-          <input
-            type="checkbox"
-            checked={debugMode}
-            onChange={handleToggleDebug}
-            className="w-3.5 h-3.5 bg-slate-850 border border-slate-700 accent-indigo-600 rounded cursor-pointer"
-          />
-          <Bug className="w-3.5 h-3.5 text-indigo-400 shrink-0 group-hover:scale-105 transition-transform" />
-          <span className="font-semibold tracking-wide">Developer Debug Mode</span>
-        </label>
-      </div>
-
-      {/* Developer Tools (Visible only when debugMode is active) */}
-      {debugMode && (
-        <div className="bg-slate-950/50 border border-slate-800/80 rounded-xl p-3 flex flex-col gap-3 animation-fade-in">
-          <div className="flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-            <Cpu className="w-4 h-4 text-indigo-400" />
-            <h2 className="text-xs font-bold text-slate-200">Developer Diagnostics Panel</h2>
-            <button 
-              onClick={refreshDevStats}
-              title="Refresh Stats"
-              className="ml-auto p-1 rounded hover:bg-slate-800 text-slate-450 hover:text-slate-200 transition cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3" />
-            </button>
-          </div>
-
-          {/* Pipeline Trace Visual Checklist */}
-          {activeTrace && (
-            <div className="bg-slate-900/60 border border-slate-800 rounded-lg p-2.5 flex flex-col gap-1.5 font-mono text-[10px] shadow-inner">
-              <div className="flex justify-between items-center border-b border-slate-850 pb-1.5 mb-1">
-                <span className="font-bold text-indigo-400">Trace: {activeTrace.name}</span>
-                <span className={`font-bold text-[9px] px-1.5 py-0.5 rounded ${
-                  activeTrace.status === 'SUCCESS' 
-                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
-                    : activeTrace.status === 'FAIL' 
-                    ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' 
-                    : 'bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse'
-                }`}>
-                  {activeTrace.status}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                {activeTrace.steps.map((step, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className={
-                        step.status === 'SUCCESS' 
-                          ? 'text-emerald-400 font-bold' 
-                          : step.status === 'FAIL' 
-                          ? 'text-rose-500 font-bold' 
-                          : 'text-slate-650 animate-pulse'
-                      }>
-                        {step.status === 'SUCCESS' ? '✔' : step.status === 'FAIL' ? '✖' : '○'}
-                      </span>
-                      <span className={step.status === 'PENDING' ? 'text-slate-500' : 'text-slate-300'}>
-                        {step.name}
-                      </span>
-                    </div>
-                    {step.duration !== undefined && (
-                      <span className="text-slate-500 text-[9px]">{step.duration}ms</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Extension Status Indicators */}
-          <div className="grid grid-cols-2 gap-2 text-[10px] bg-slate-900/50 p-2 rounded-lg border border-slate-850">
-            <div className="flex justify-between border-r border-slate-800/60 pr-2">
-              <span className="text-slate-400">Background Worker</span>
-              <span className="text-emerald-400 font-bold">Active</span>
-            </div>
-            <div className="flex justify-between pl-2">
-              <span className="text-slate-400">Offscreen Window</span>
-              <span className={`font-bold ${offscreenStatus === 'Active' ? 'text-emerald-400' : 'text-slate-500'}`}>
-                {offscreenStatus}
-              </span>
-            </div>
-            <div className="flex justify-between border-r border-slate-800/60 pr-2 border-t border-slate-800/40 pt-1">
-              <span className="text-slate-400">Content Script</span>
-              <span className={`font-bold ${activeSite?.supported ? 'text-emerald-400' : 'text-slate-500'}`}>
-                {activeSite?.supported ? 'Linked' : 'Fallback'}
-              </span>
-            </div>
-            <div className="flex justify-between pl-2 border-t border-slate-800/40 pt-1">
-              <span className="text-slate-400">Recorder Status</span>
-              <span className={`font-bold ${isRecording ? 'text-rose-400 animate-pulse' : 'text-slate-500'}`}>
-                {isRecording ? 'Recording' : 'Idle'}
-              </span>
-            </div>
-          </div>
-
-          {/* Core Metrics Summary */}
-          <div className="flex flex-col gap-1 text-[9px] text-slate-350 font-mono bg-slate-900/40 p-2 rounded-lg border border-slate-850/80">
-            <div>• Last Screenshot: {lastScreenshot ? `${lastScreenshot.width}x${lastScreenshot.height} (${Math.round(lastScreenshot.size / 1024)} KB)` : 'None'}</div>
-            <div>• OCR Engine: {ocrStatus ? `${ocrStatus.lang.toUpperCase()} | ${ocrStatus.lastTime}` : 'Idle / Not loaded'}</div>
-            <div>• Last Inject: {injectionStatus ? `${injectionStatus.method}` : 'None'}</div>
-          </div>
-
-          {/* Debug Console Logs */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-300">Live Console Output</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleCopyLogs}
-                  className="text-[9px] font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer"
-                >
-                  {copiedLogs ? 'Copied!' : 'Copy'}
-                </button>
-                <span className="text-slate-700">|</span>
-                <button
-                  onClick={handleClearLogs}
-                  className="text-[9px] font-semibold text-slate-400 hover:text-slate-200 transition cursor-pointer"
-                >
-                  Clear
-                </button>
-                <span className="text-slate-700">|</span>
-                <button
-                  onClick={handleExportLogs}
-                  className="text-[9px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-0.5 transition cursor-pointer"
-                >
-                  <Download className="w-2.5 h-2.5" /> JSON
-                </button>
-              </div>
-            </div>
-
-            <div className="h-[120px] overflow-y-auto bg-black/60 border border-slate-800 rounded-lg p-2 font-mono text-[9px] text-indigo-350 select-text scrollbar-thin">
-              {logs.length === 0 ? (
-                <span className="text-slate-600 block text-center mt-8">Console output is empty. Enable capturing to trigger logs.</span>
-              ) : (
-                logs.map((log, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`leading-normal border-b border-slate-900/40 pb-0.5 mb-0.5 whitespace-pre-wrap ${
-                      log.level === 'ERROR' ? 'text-rose-400 font-bold' : log.level === 'WARN' ? 'text-amber-400' : 'text-indigo-300'
-                    }`}
-                  >
-                    [{log.timestamp}][{log.module}] {log.message}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -54,7 +54,7 @@ class Logger {
         };
 
         const res = await chrome.storage.local.get('debugLogs');
-        const logs: LogEntry[] = res.debugLogs || [];
+        const logs: LogEntry[] = (res.debugLogs as LogEntry[]) || [];
         logs.push(entry);
         
         // Restrict to last 100 entries
@@ -85,8 +85,12 @@ class Logger {
     this.writeLog('INFO', msg);
   }
 
-  warn(msg: string) {
-    this.writeLog('WARN', msg);
+  warn(msg: string, err?: any) {
+    let errorDetail = '';
+    if (err) {
+      errorDetail = ` | Details: ${err.message || err}`;
+    }
+    this.writeLog('WARN', `${msg}${errorDetail}`);
   }
 
   error(msg: string, err?: any) {
@@ -139,10 +143,10 @@ export class PipelineTracker {
     chrome.runtime.sendMessage({ action: 'TRACE_UPDATED', trace: data }).catch(() => {});
   }
 
-  static async updateStep(stepName: string, status: 'SUCCESS' | 'FAIL', detail?: string) {
+  static async updateStep(stepName: string, status: 'PENDING' | 'SUCCESS' | 'FAIL', detail?: string) {
     try {
       const res = await chrome.storage.local.get('activeTrace');
-      const data: TraceData | undefined = res.activeTrace;
+      const data: TraceData | undefined = res.activeTrace as TraceData | undefined;
       if (!data) return;
 
       const now = Date.now();
@@ -181,7 +185,7 @@ export class PipelineTracker {
   static async complete(status: 'SUCCESS' | 'FAIL', finalMessage?: string) {
     try {
       const res = await chrome.storage.local.get('activeTrace');
-      const data: TraceData | undefined = res.activeTrace;
+      const data: TraceData | undefined = res.activeTrace as TraceData | undefined;
       if (!data) return;
 
       const totalDuration = Date.now() - data.startTime;

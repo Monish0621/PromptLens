@@ -68,7 +68,7 @@ export function analyzeCharacterQuality(text: string): AnalyzerResult {
     warnings.push({
       type: 'EXCESSIVE_REPEATED_CHARS',
       severity: totalRepeatedChars > 15 ? 'high' : 'medium',
-      message: `Detected ${repeatMatches.length} block(s) of suspicious repeated characters (e.g. "${repeatMatches[0].substring(0, 8)}")`,
+      message: `Detected ${repeatMatches.length} block(s) of suspicious repeated characters (e.g. "${repeatMatches[0]?.substring(0, 8) || ''}")`,
       details: { matchCount: repeatMatches.length, matches: repeatMatches.slice(0, 5) },
     });
   }

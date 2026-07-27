@@ -13,7 +13,7 @@ let mediaStream: MediaStream | null = null;
 let recordingTimeout: number | null = null;
 
 // Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
   if (message.target !== 'offscreen') return;
 
   if (message.action === 'CROP_SCREENSHOT') {
@@ -231,20 +231,7 @@ async function handleStartRecording(streamId: string): Promise<void> {
   };
 
   mediaRecorder.start();
-  logger.info('MediaRecorder started recording tab chunks');
-
-  // Automatic limit of 15 seconds
-  recordingTimeout = window.setTimeout(() => {
-    logger.warn('Recording 15-second timeout limit reached');
-    chrome.runtime.sendMessage({
-      action: 'RECORDING_LIMIT_REACHED',
-      target: 'background'
-    });
-    // Delegate stop action to background router so it is saved to history & injected
-    chrome.runtime.sendMessage({
-      action: 'STOP_TAB_RECORDING'
-    });
-  }, 15000);
+  logger.info('MediaRecorder started recording tab chunks (unlimited duration)');
 }
 
 /**

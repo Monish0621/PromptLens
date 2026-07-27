@@ -58,7 +58,7 @@ export class TesseractAdapter implements OCREngine {
 
       // Map Tesseract word data to our generic WordData shape.
       // Tesseract v5+ exposes result.data.words[].confidence and .text.
-      const words = (result.data.words ?? []).map((w: any) => ({
+      const words = (((result.data as any).words ?? []) as any[]).map((w: any) => ({
         text:       typeof w.text === 'string' ? w.text : '',
         confidence: typeof w.confidence === 'number' ? w.confidence : 0,
       }));

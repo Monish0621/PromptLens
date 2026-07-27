@@ -10,8 +10,7 @@
  *
  * Performance target: < 1ms orchestration overhead. Fault tolerant — never throws.
  */
-import type { OCRContext } from '../types/ocrTypes';
-import type { OCREngine }   from '../engines/ocrEngine';
+import type { OCRContext, OCREngine } from '../types/ocrTypes';
 import {
   type ComparisonReport,
   type RetryAttempt,

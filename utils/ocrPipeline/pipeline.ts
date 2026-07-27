@@ -28,7 +28,7 @@ export async function performOCR(
   imageDataUrl: string,
   config: OCRConfig = defaultOCRConfig()
 ): Promise<OCRResult> {
-
+  const startTime = performance.now();
   ocrLog.pipeline('Pipeline Started');
 
   let ctx = createOCRContext(imageDataUrl, config);
@@ -68,10 +68,15 @@ export async function performOCR(
 
   return {
     text,
-    confidence: ctx.confidence,
-    statistics: ctx.statistics!,
-    timings:    ctx.stageResults,
-    warnings:   ctx.warnings,
-    errors:     ctx.errors,
+    confidence:     ctx.confidence,
+    language:       ctx.language || 'eng',
+    statistics:     ctx.statistics!,
+    metadata:       ctx.metadata,
+    stageTimings:   ctx.stageResults,
+    totalElapsedMs: performance.now() - startTime,
+    pipelineVersion: PIPELINE_VERSION,
+    warnings:       ctx.warnings,
+    errors:         ctx.errors,
+    context:        ctx,
   };
 }

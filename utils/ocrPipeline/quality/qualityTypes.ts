@@ -165,6 +165,9 @@ export interface OCRQualityReport {
   /** Content consistency score (0–100) */
   contentScore: number;
 
+  /** Primary detected content type classification tag */
+  contentType?: ContentType | string;
+
   /** Enriched Content Detection model */
   contentDetection: ContentDetection;
 

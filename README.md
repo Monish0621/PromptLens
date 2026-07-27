@@ -7,88 +7,87 @@
 [![WXT Framework](https://img.shields.io/badge/Framework-WXT%20v0.20-red)](https://wxt.dev/)
 [![Chrome Extension](https://img.shields.io/badge/Manifest-MV3-green?logo=googlechrome)](https://developer.chrome.com/docs/extensions/mv3/intro/)
 
-PromptLens is a privacy-first Chrome Extension designed to transform screen regions into clean, structured, AI-ready context using in-browser WebAssembly OCR.
+![PromptLens Hero](docs/images/hero.png)
 
-Captured screen selections are processed locally in memory without automatic disk saving.
+Capture screenshots, extract text locally using OCR, record browser workflows, and send structured context directly to ChatGPT, Claude, Gemini, Grok, and Perplexity.
 
-<!-- Screenshot Placeholder: Main PromptLens Selection Overlay in Action -->
-<!-- ![PromptLens Selection Overlay](docs/images/promptlens-hero-demo.png) -->
-
----
-
-## Product Overview
-
-Interacting with AI models (ChatGPT, Claude, VS Code AI, GitHub Copilot) often requires copying text from non-selectable UI regions—code snippets in videos, terminal output in documentation, error tracebacks in screenshots, or multi-column layout blocks.
-
-**PromptLens** serves as a responsive bridge between visual information and AI interfaces. Powered by a local WebAssembly OCR engine, PromptLens extracts text, analyzes layout structure, identifies syntax types (JSON, Markdown, Terminal, YAML), and formats context for LLM prompts.
+⭐ **Local OCR** &nbsp;|&nbsp; 🎥 **Screen Recording** &nbsp;|&nbsp; ⚡ **AI Injection** &nbsp;|&nbsp; 🔒 **Privacy First** &nbsp;|&nbsp; 📋 **Session History**
 
 ---
 
-## Key Features
+## Why PromptLens?
 
-- 🔒 **Local WebAssembly OCR**: Performs text extraction locally within the browser using bundled WebAssembly components.
-- ⚡ **In-Memory Processing**: Processes visual selections in memory without saving temporary image files to your local disk.
-- 🎯 **Multi-Stage OCR Engine**: Includes automated image preprocessing, layout analysis, structural text block segmentation, and quality evaluation.
-- 🔄 **Adaptive Profile Selection & Retries**: Evaluates content characteristics and applies dynamic profiles for code, documents, terminal output, and structured data.
-- 🌐 **Language & Script Analysis**: Provides lightweight script detection and language candidate evaluation across common character sets.
-- 🧩 **AI Context Integration**: Routes formatted context directly to active AI chat interfaces or copies to your clipboard.
+Working with AI assistants requires transferring code snippets, terminal outputs, error tracebacks, or structured data from non-selectable UI regions like video tutorials, technical documentation, or CLI tools.
+
+Manual typing leads to syntax errors, while saving raw screenshots clutter your disk and risk uploading sensitive data to cloud servers.
+
+**PromptLens** serves as a responsive, privacy-first bridge between your screen and AI interfaces. Powered by an offline WebAssembly OCR engine, PromptLens extracts structured text locally, classifies syntax, and routes context straight to active AI tabs with zero server transmissions.
 
 ---
 
-## Core Principles
+## Features
 
-| Principle | Description |
+### 🔍 Local WebAssembly OCR
+Extracts text locally within your browser using a bundled WebAssembly engine. Features dynamic profile retries for C++, Python, TypeScript, JSON, YAML, and Terminal outputs.
+
+### 🎥 Browser Tab Screen Recording
+Record tab video streams with unlimited duration and a lightweight floating controller for seamless AI video analysis workflows.
+
+### ⚡ One-Click AI Context Routing
+Automatically detects open AI tabs (ChatGPT, Claude, Gemini, Grok, Perplexity) and routes formatted prompt payloads using an interactive Share Sheet overlay.
+
+### 🔒 Privacy-First Architecture
+100% in-browser processing. Visual selections exist only in temporary memory buffers and are purged immediately after extraction.
+
+### 📋 Session Snippet History
+Access, re-copy, or dispatch recent OCR extractions and video clips directly from the extension dashboard during your active session.
+
+---
+
+## Screenshots & Demos
+
+### 1. Main Dashboard & Workflow
+
+![PromptLens Popup](docs/images/hero.png)
+*PromptLens popup showcasing the complete capture workflow.*
+
+---
+
+### 2. Precision Region Selection
+
+![Capture Region](docs/images/capture-region.png)
+*Select exactly the content you need from any webpage.*
+
+---
+
+### 3. Multi-Tab AI Injection
+
+![AI Injection](docs/images/ai-injection.png)
+*Send structured context directly into supported AI assistants.*
+
+---
+
+### 4. Local WebAssembly OCR Demo
+
+<video src="docs/images/ocr-demo.mp4" controls width="100%"></video>
+*Watch PromptLens extract structured text locally using WebAssembly OCR.*
+
+---
+
+### 5. Tab Screen Recording Demo
+
+<video src="docs/images/video-recording.mp4" controls width="100%"></video>
+*Record browser workflows and prepare them for AI-assisted analysis.*
+
+---
+
+## Keyboard Shortcuts
+
+| Shortcut | Description |
 | :--- | :--- |
-| 🔒 **Privacy First** | Designed to process images locally within the browser without cloud OCR dependencies. |
-| ⚡ **Speed Matters** | Optimized for responsive, in-memory execution. |
-| 📁 **Zero Screenshot Clutter** | Selections are processed in memory and released after extraction. |
-| 🛠️ **Developer Friendly** | Modular architecture built with TypeScript and extensible pipeline registries. |
-
----
-
-## System Flow
-
-```mermaid
-flowchart TD
-    A["User Triggers Selection"] --> B["Overlay Script Captures Region"]
-    B --> C["Selection Passed to Offscreen Worker"]
-    C --> D["Image Preprocessing & Normalization"]
-    D --> E["Tesseract WASM Recognition"]
-    E --> F["Layout Analysis & Text Block Segmentation"]
-    F --> G["Quality Analysis & Dynamic Profile Evaluation"]
-    G --> H{"Confidence & Quality Met?"}
-    H -- No --> I["Profile Retry Pass & Result Comparison"]
-    H -- Yes --> J["Language & Script Analysis"]
-    I --> J
-    J --> K["Structured OCRDocument Output"]
-    K --> L["Route Context to Active LLM Interface / Clipboard"]
-```
-
----
-
-## Architecture Summary
-
-PromptLens uses a pipeline architecture where discrete processing stages operate on a shared context:
-
-1. **Analysis & Preprocessing**: Calculates image metrics and applies quality enhancement filters (upscaling, adaptive thresholding, deskewing, denoising).
-2. **WASM Recognition**: Interfaces with the offline Tesseract WebAssembly engine.
-3. **Layout & Block Analysis**: Segments spatial regions, classifies text blocks, and detects table structures.
-4. **Quality & Profile Retries**: Measures text quality, evaluates syntax integrity, and applies targeted profile passes when needed.
-5. **Language & Statistics**: Evaluates script distribution, scores language candidates, and records execution metrics.
-
-> For complete architectural specifications and flowcharts, see [docs/architecture.md](docs/architecture.md).
-
----
-
-## Supported Content Types
-
-PromptLens automatically detects and formats:
-
-- **Source Code**: Monospaced snippets in C, C++, Java, Python, JavaScript, TypeScript, Rust, Go, etc.
-- **Structured Data**: JSON payloads and YAML configuration blocks.
-- **Terminal Output**: Shell prompts, CLI logs, error tracebacks (`npm`, `git`, `docker`, `cargo`).
-- **Markdown & Web Documents**: Formatted headers, lists, code fences, and HTML blocks.
-- **Prose & Documentation**: Technical articles, paper snippets, and documentation layouts.
+| <kbd>Alt</kbd> + <kbd>S</kbd> | Trigger visual screenshot region selection overlay |
+| <kbd>Alt</kbd> + <kbd>O</kbd> | Trigger visual selection overlay for local OCR text extraction |
+| <kbd>Esc</kbd> | Cancel active selection overlay or close Share Sheet panel |
 
 ---
 
@@ -98,14 +97,14 @@ PromptLens automatically detects and formats:
 
 - [Node.js](https://nodejs.org/) (v18.0.0 or higher)
 - [npm](https://www.npmjs.com/) (v9.0.0 or higher)
-- Google Chrome or compatible Chromium browser
+- Google Chrome or Chromium-based browser
 
 ### Local Setup
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/Monish0621/LLM-Context-Capture.git
-   cd LLM-Context-Capture
+   git clone https://github.com/Monish0621/PromptLens.git
+   cd PromptLens
    ```
 
 2. **Install Dependencies**:
@@ -113,77 +112,51 @@ PromptLens automatically detects and formats:
    npm install
    ```
 
-3. **Start Development Build**:
+3. **Start Development Server**:
    ```bash
    npm run dev
    ```
 
 4. **Load Unpacked Extension in Chrome**:
-   - Navigate to `chrome://extensions/`.
-   - Enable **Developer mode** (top-right toggle).
-   - Click **Load unpacked**.
-   - Select `.output/chrome-mv3` directory.
+   - Open `chrome://extensions/`
+   - Enable **Developer mode** (top-right toggle)
+   - Click **Load unpacked** and select the `.output/chrome-mv3` directory
 
 ---
 
-## Browser Compatibility
+## Architecture Overview
 
-PromptLens is developed and tested on Google Chrome (Manifest V3). Other Chromium-based browsers may be compatible depending on support for the required extension APIs.
+PromptLens is built on Chrome Manifest V3 using an event-driven, decoupled worker model:
 
----
+- **Popup Dashboard (`React 18 + TailwindCSS`)**: Lightweight extension control panel.
+- **Background Service Worker**: Tab registry manager and state router.
+- **Offscreen Processing Context**: Isolated sandbox for Tesseract WebAssembly engine execution and MediaRecorder streams.
+- **Content Overlay Scripts**: Interactive canvas selection tools, floating recording controller, and Share Sheet.
 
-## Technology Stack
-
-- **Extension Framework**: [WXT Framework](https://wxt.dev/) (Manifest V3)
-- **UI Component Library**: React 18 + TailwindCSS
-- **Primary OCR Engine**: [Tesseract.js WASM](https://github.com/naptha/tesseract.js) (Offline WebAssembly core)
-- **Language & Runtime**: TypeScript 5.0+, Vite 8.1
-- **Graphics & Processing**: Offscreen HTML5 Canvas & ImageData API
-
----
-
-## Repository Structure
-
-```
-.
-├── entrypoints/              # Extension entry points (background, content, overlay, popup, offscreen)
-├── utils/
-│   ├── ocrPipeline/          # Modular 12-stage OCR Pipeline architecture
-│   └── llmInjectors.ts       # Context injection drivers for AI web interfaces
-├── public/                   # Extension icons & local Tesseract WASM binary assets
-├── docs/                     # Architecture, privacy policy, and FAQ documentation
-├── package.json
-└── wxt.config.ts             # WXT extension build configuration
-```
+> For detailed stage specifications, sequence diagrams, and pipeline contracts, see the **[Architecture Guide](docs/architecture.md)**.
 
 ---
 
 ## Documentation
 
-- 📐 **[Architecture Guide](docs/architecture.md)**: Technical specifications of the pipeline.
-- 🔒 **[Privacy Policy](docs/privacy-policy.md)**: Details on local processing and Chrome extension permissions.
-- ❓ **[FAQ](docs/faq.md)**: Frequently asked questions for developers and users.
-- 🤝 **[Contributing Guidelines](CONTRIBUTING.md)**: How to build and submit pull requests.
-- 📜 **[Changelog](CHANGELOG.md)**: Release notes.
+- 📐 **[Architecture Specification](docs/architecture.md)**: Deep dive into the 12-stage OCR pipeline and MV3 message routing.
+- 🔒 **[Privacy Policy](docs/privacy-policy.md)**: Full breakdown of local execution guarantees and browser permissions.
+- ❓ **[FAQ](docs/faq.md)**: Frequently asked questions for users and contributors.
+- 🤝 **[Contributing Guidelines](CONTRIBUTING.md)**: Local build and pull request guidelines.
+- 📜 **[Changelog](CHANGELOG.md)**: Project version history.
 
 ---
 
 ## Privacy & Security
 
-PromptLens is designed around local processing:
+- **100% Local Execution**: PromptLens processes visual captures entirely within your browser context.
+- **Zero Remote Transmissions**: No screenshots, OCR extractions, or recordings are sent to external analytics or remote servers.
+- **In-Memory Buffering**: Captured screen regions are held temporarily in memory and released immediately after extraction.
 
-- **Local Execution**: PromptLens itself does not transmit captured screenshots or extracted OCR text to external servers during normal operation.
-- **No Cloud Dependencies**: Text extraction is performed locally inside your browser using bundled WebAssembly binaries.
-- **In-Memory Processing**: Screen selections exist in memory buffers during processing and are released after extraction.
-
----
-
-## Contributing
-
-We welcome community contributions. Please review our [CONTRIBUTING.md](CONTRIBUTING.md) guide before submitting pull requests.
+For complete details, review our **[Privacy Policy](docs/privacy-policy.md)**.
 
 ---
 
 ## License
 
-PromptLens is released under the [MIT License](LICENSE).
+PromptLens is open-source software licensed under the [MIT License](LICENSE).

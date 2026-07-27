@@ -45,7 +45,7 @@ export function analyzeLines(text: string): LineAnalysisResult {
     totalLines: lines.length,
     indentedLines: indentedCount,
     avgIndentation,
-    maxIndentation,
+    maxIndentation: maxIndent,
     emptyLines: emptyCount,
     lines,
   };

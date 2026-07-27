@@ -15,6 +15,10 @@ export const PROFILE_ENGINE_VERSION = '1.0';
 // OCR Profile Definition Interface
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 export interface OCRProfile {
   /** Machine-readable profile identifier */
   name: string;
@@ -27,7 +31,7 @@ export interface OCRProfile {
   /** Base priority weight (0–100) */
   priority: number;
   /** OCRConfig parameters overridden when this profile is active */
-  configurationOverrides: Partial<OCRConfig>;
+  configurationOverrides: DeepPartial<OCRConfig>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

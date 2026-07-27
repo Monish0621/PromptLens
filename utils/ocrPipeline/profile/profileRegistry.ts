@@ -54,7 +54,7 @@ export const CODE_PROFILE: OCRProfile = {
       sharpen: true,
       sharpenAmount: 0.6,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 
@@ -72,7 +72,7 @@ export const DOCUMENT_PROFILE: OCRProfile = {
       thresholdC: 12,
       enableMedianFilter: true,
     },
-    tesseract: { psm: 3, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 3, oem: 1, lang: 'eng' },
   },
 };
 
@@ -90,7 +90,7 @@ export const LOW_RESOLUTION_PROFILE: OCRProfile = {
       sharpen: true,
       sharpenAmount: 0.85,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 
@@ -107,7 +107,7 @@ export const HIGH_CONTRAST_PROFILE: OCRProfile = {
       contrastHighPercentile: 95,
       thresholdC: 16,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 
@@ -124,7 +124,7 @@ export const TERMINAL_PROFILE: OCRProfile = {
       thresholdBlockSize: 17,
       thresholdC: 10,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 
@@ -141,7 +141,7 @@ export const MARKDOWN_PROFILE: OCRProfile = {
       thresholdBlockSize: 21,
       thresholdC: 10,
     },
-    tesseract: { psm: 3, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 3, oem: 1, lang: 'eng' },
   },
 };
 
@@ -158,7 +158,7 @@ export const JSON_PROFILE: OCRProfile = {
       thresholdBlockSize: 15,
       thresholdC: 7,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 
@@ -175,7 +175,7 @@ export const HTML_PROFILE: OCRProfile = {
       thresholdBlockSize: 19,
       thresholdC: 9,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 
@@ -192,7 +192,7 @@ export const YAML_PROFILE: OCRProfile = {
       thresholdBlockSize: 19,
       thresholdC: 9,
     },
-    tesseract: { psm: 6, oem: 1, lang: 'eng' },
+    engineOptions: { psm: 6, oem: 1, lang: 'eng' },
   },
 };
 

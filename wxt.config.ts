@@ -4,8 +4,8 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
-    name: 'LLM Context Capture',
-    description: 'Capture screenshot regions, run client-side OCR, and auto-inject into ChatGPT, Claude, Gemini, Grok',
+    name: 'PromptLens',
+    description: 'Smart Screenshots, Screen Recording, Intelligent Local OCR, AI Context, and Clipboard Workflow',
     version: '1.0.0',
     permissions: [
       'activeTab',
@@ -53,7 +53,7 @@ export default defineConfig({
       }
     },
     action: {
-      default_title: 'LLM Context Capture'
+      default_title: 'PromptLens'
     },
     web_accessible_resources: [
       {

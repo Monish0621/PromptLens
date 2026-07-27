@@ -56,5 +56,5 @@ PromptLens uses bundled local dependencies, including the Tesseract WebAssembly 
 
 PromptLens is an open-source project. Users and developers may review the source code and local processing implementation on GitHub:
 
-- **Repository**: [https://github.com/Monish0621/LLM-Context-Capture](https://github.com/Monish0621/LLM-Context-Capture)
-- **Issue Tracker**: [https://github.com/Monish0621/LLM-Context-Capture/issues](https://github.com/Monish0621/LLM-Context-Capture/issues)
+- **Repository**: [https://github.com/Monish0621/PromptLens](https://github.com/Monish0621/PromptLens)
+- **Issue Tracker**: [https://github.com/Monish0621/PromptLens/issues](https://github.com/Monish0621/PromptLens/issues)

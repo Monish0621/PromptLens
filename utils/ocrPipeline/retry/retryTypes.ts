@@ -19,10 +19,14 @@ export type RetryProfileName =
   | 'LOW_RESOLUTION'
   | 'HIGH_CONTRAST';
 
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 export interface RetryProfile {
   name: RetryProfileName;
   description: string;
-  configOverrides: Partial<OCRConfig>;
+  configOverrides: DeepPartial<OCRConfig>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

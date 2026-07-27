@@ -33,7 +33,7 @@ export class QualityAnalysisStage implements OCRStage {
       const report = analyzeOCRQuality(ctx);
 
       ctx.qualityReport          = report;
-      ctx.contentType            = report.contentType;
+      ctx.contentType            = (report.contentType as any) || 'unknown';
       ctx.contentDetection       = report.contentDetection;
       ctx.confidenceBreakdown    = report.confidenceBreakdown;
       ctx.qualityPipelineVersion = report.qualityPipelineVersion;

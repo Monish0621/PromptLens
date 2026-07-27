@@ -18,8 +18,8 @@ PromptLens is an open-source, privacy-first Chrome Extension designed to convert
 
 1. **Fork and Clone the Repository**:
    ```bash
-   git clone https://github.com/YOUR-USERNAME/LLM-Context-Capture.git
-   cd LLM-Context-Capture
+   git clone https://github.com/YOUR-USERNAME/PromptLens.git
+   cd PromptLens
    ```
 
 2. **Install Dependencies**:

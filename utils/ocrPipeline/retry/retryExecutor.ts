@@ -8,8 +8,7 @@
  *
  * Fault tolerant: Returns null on failure without throwing or aborting the main pipeline.
  */
-import type { OCRContext, OCRConfig }   from '../types/ocrTypes';
-import type { OCREngine }               from '../engines/ocrEngine';
+import type { OCRContext, OCRConfig, OCREngine } from '../types/ocrTypes';
 import type { RetryProfile, RetryResult } from './retryTypes';
 import { PreprocessStage }              from '../stages/preprocess';
 import { RecognitionStage }             from '../stages/recognition';
@@ -29,7 +28,7 @@ export async function executeRetryPass(
     ocrLog.info(`[RetryExecutor] Starting Retry Pass #${attempt} [Profile: ${profile.name}]...`);
 
     // Merge config overrides
-    const newConfig: OCRConfig = mergeConfigOverrides(initialCtx.config, profile.configOverrides);
+    const newConfig: OCRConfig = mergeConfigOverrides(initialCtx.config, profile.configOverrides as Partial<OCRConfig>);
 
     // Create a new context clone for this retry attempt
     let retryCtx: OCRContext = {
@@ -96,9 +95,9 @@ function mergeConfigOverrides(base: OCRConfig, overrides: Partial<OCRConfig>): O
       ...base.preprocessing,
       ...(overrides.preprocessing || {}),
     },
-    tesseract: {
-      ...base.tesseract,
-      ...(overrides.tesseract || {}),
+    engineOptions: {
+      ...(base.engineOptions || {}),
+      ...(overrides.engineOptions || {}),
     },
     confidence: {
       ...base.confidence,

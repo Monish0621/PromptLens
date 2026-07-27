@@ -12,8 +12,7 @@
  *
  * Never throws — catches any error, logs warning, returns ctx.
  */
-import type { OCRStage, OCRContext } from '../types/ocrTypes';
-import type { OCREngine }            from '../engines/ocrEngine';
+import type { OCRStage, OCRContext, OCREngine } from '../types/ocrTypes';
 import { runRetryEngine }            from '../retry/retryEngine';
 import { ocrLog }                    from '../utils/ocrLogger';
 

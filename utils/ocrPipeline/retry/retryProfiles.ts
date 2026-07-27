@@ -44,11 +44,10 @@ export const RETRY_PROFILES: Record<RetryProfileName, RetryProfile> = {
         deskewAngleStep:        0.5,
         sharpen:                true,
         sharpenAmount:          0.6,
-        preprocessSnapshots:    false,
       },
-      tesseract: {
-        psm: 6, // Assume a single uniform block of text (ideal for code)
-        oem: 1, // Neural net LSTM engine
+      engineOptions: {
+        psm: 6,
+        oem: 1,
         lang: 'eng',
       },
     },
@@ -84,10 +83,9 @@ export const RETRY_PROFILES: Record<RetryProfileName, RetryProfile> = {
         deskewAngleStep:        0.5,
         sharpen:                true,
         sharpenAmount:          0.5,
-        preprocessSnapshots:    false,
       },
-      tesseract: {
-        psm: 3, // Fully automatic page segmentation
+      engineOptions: {
+        psm: 3,
         oem: 1,
         lang: 'eng',
       },
@@ -124,9 +122,8 @@ export const RETRY_PROFILES: Record<RetryProfileName, RetryProfile> = {
         deskewAngleStep:        0.5,
         sharpen:                true,
         sharpenAmount:          0.85,
-        preprocessSnapshots:    false,
       },
-      tesseract: {
+      engineOptions: {
         psm: 6,
         oem: 1,
         lang: 'eng',
@@ -164,9 +161,8 @@ export const RETRY_PROFILES: Record<RetryProfileName, RetryProfile> = {
         deskewAngleStep:        0.5,
         sharpen:                true,
         sharpenAmount:          0.5,
-        preprocessSnapshots:    false,
       },
-      tesseract: {
+      engineOptions: {
         psm: 6,
         oem: 1,
         lang: 'eng',
