@@ -149,7 +149,7 @@ PromptLens is built on Chrome Manifest V3 using an event-driven, decoupled worke
 
 ## Privacy & Security
 
-- **100% Local Execution**: PromptLens processes visual captures entirely within your browser context.
+- **Complete Local Execution**: PromptLens processes visual captures entirely within your browser context.
 - **Zero Remote Transmissions**: No screenshots, OCR extractions, or recordings are sent to external analytics or remote servers.
 - **In-Memory Buffering**: Captured screen regions are held temporarily in memory and released immediately after extraction.
 
