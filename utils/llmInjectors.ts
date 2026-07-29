@@ -297,9 +297,6 @@ async function writeBlobToClipboard(file: File): Promise<void> {
  * Tiered Injection Engine for Images (Screenshots / Videos)
  */
 export async function injectImageToLLM(dataUrl: string, isVideo = false, injectionId?: string): Promise<boolean> {
-  console.count("[Injector] injectImageToLLM()");
-  console.trace("[Injector] injectImageToLLM Call Stack");
-
   const fileType = isVideo ? 'video/webm' : 'image/png';
   const timestamp = Date.now();
   const randStr = Math.random().toString(36).substring(2, 7);
@@ -320,7 +317,6 @@ export async function injectImageToLLM(dataUrl: string, isVideo = false, injecti
     await writeBlobToClipboard(file);
 
     // Try hidden file input selector first (extremely robust on ChatGPT / Claude)
-    console.count("[Injector] Hidden File Input");
     logger.info('Image Injection Stage 0: Checking hidden input file handlers...');
     if (triggerHiddenFileInput(file)) {
       logger.info('Stage 0 SUCCESS: Injected file via hidden input field');
@@ -339,7 +335,6 @@ export async function injectImageToLLM(dataUrl: string, isVideo = false, injecti
     await new Promise(resolve => setTimeout(resolve, 0));
 
     // Stage 1: Simulated Paste Event
-    console.count("[Injector] ClipboardEvent");
     logger.info('[Content] Dispatching ClipboardEvent("paste")...');
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
@@ -360,7 +355,6 @@ export async function injectImageToLLM(dataUrl: string, isVideo = false, injecti
     }
 
     // Stage 2: Native clipboard paste trigger fallback ONLY IF Stage 1 was NOT dispatched
-    console.count("[Injector] execCommand");
     logger.info('Image Injection fallback Stage 2: Executing document.execCommand("paste")...');
     document.execCommand('paste');
     logger.info('Stage 2 EXECUTED: Dispatched native paste event');
@@ -427,32 +421,17 @@ function waitUntilEditorChanges(
 
       const elapsed = (performance.now() - t0).toFixed(1);
       if (reason === 'changed') {
-        const after = readEditor();
-        console.log(
-          `[Injector] Mutation detected at +${elapsed}ms` +
-          ` | before: ${JSON.stringify(snapshot)}` +
-          ` | after: ${JSON.stringify(after)}`
-        );
         logger.info(`[Injector] Observer disconnected — editor changed after ${elapsed}ms`);
         resolve(true);
       } else {
-        console.log(`[Injector] Timeout reached after ${elapsed}ms — no editor mutation detected`);
         logger.info(`[Injector] Observer disconnected — timeout after ${elapsed}ms. Proceeding to fallback.`);
         resolve(false);
       }
     }
 
     // ── MutationObserver: primary success detector ────────────────────────────
-    const observer = new MutationObserver((mutations) => {
+    const observer = new MutationObserver(() => {
       if (settled) return;
-
-      mutations.forEach(m => {
-        const targetTag = (m.target as Element).tagName?.toLowerCase() ?? 'text';
-        console.log(
-          `[Injector] Mutation type=${m.type} target=<${targetTag}>` +
-          ` at +${(performance.now() - t0).toFixed(1)}ms`
-        );
-      });
 
       // Resolve only if content actually differs from the snapshot
       if (readEditor() !== snapshot) {
@@ -460,7 +439,6 @@ function waitUntilEditorChanges(
       }
     });
 
-    console.log('[Injector] Observer attached');
     observer.observe(editor, {
       childList: true,
       subtree: true,
@@ -489,13 +467,9 @@ async function genericTextFallback(
 ): Promise<string> {
 
   // Stage 2: execCommand("insertText") — robust on ProseMirror / contenteditable
-  console.count('[Injector] Strategy: execCommand');
   const beforeStage2 = editorText();
-  console.log('[Injector] Fallback executing');
-  console.log('[Injector] BEFORE execCommand insertText:', JSON.stringify(beforeStage2));
   const execSuccess = document.execCommand('insertText', false, text);
   const afterStage2 = editorText();
-  console.log('[Injector] AFTER  execCommand insertText:', JSON.stringify(afterStage2));
 
   if (afterStage2 !== beforeStage2) {
     logger.info(`Stage 2 SUCCESS: Text inserted via execCommand (returned ${execSuccess})`);
@@ -509,18 +483,9 @@ async function genericTextFallback(
     inputEl.getAttribute('contenteditable') === 'true' || inputEl.tagName !== 'TEXTAREA';
 
   if (isContentEditable) {
-    console.count('[Injector] Strategy: textContent');
-    const beforeStage3 = editorText();
-    console.log('[Injector] BEFORE textContent set:', JSON.stringify(beforeStage3));
     inputEl.textContent = (inputEl.textContent || '') + text;
-    console.log('[Injector] AFTER  textContent set:', JSON.stringify(editorText()));
-
-    console.count('[Injector] Strategy: InputEvent');
-    console.log('[Injector] BEFORE input Event dispatch:', JSON.stringify(editorText()));
     inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-    console.log('[Injector] AFTER  input Event dispatch:', JSON.stringify(editorText()));
   } else {
-    console.count('[Injector] Strategy: setValue');
     const textarea = inputEl as HTMLTextAreaElement;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
@@ -531,26 +496,16 @@ async function genericTextFallback(
       HTMLTextAreaElement.prototype, 'value'
     )?.set;
 
-    const beforeStage3 = editorText();
-    console.log('[Injector] BEFORE nativeValueSetter:', JSON.stringify(beforeStage3));
     if (nativeValueSetter) {
       nativeValueSetter.call(textarea, newVal);
     } else {
       textarea.value = newVal;
     }
-    console.log('[Injector] AFTER  nativeValueSetter:', JSON.stringify(editorText()));
 
     textarea.selectionStart = textarea.selectionEnd = start + text.length;
 
-    console.count('[Injector] Strategy: InputEvent');
-    console.log('[Injector] BEFORE input Event dispatch:', JSON.stringify(editorText()));
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
-    console.log('[Injector] AFTER  input Event dispatch:', JSON.stringify(editorText()));
-
-    console.count('[Injector] Strategy: change');
-    console.log('[Injector] BEFORE change Event dispatch:', JSON.stringify(editorText()));
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
-    console.log('[Injector] AFTER  change Event dispatch:', JSON.stringify(editorText()));
   }
 
   logger.info('Stage 3 SUCCESS: Inserted text via DOM state mutation');
@@ -577,8 +532,6 @@ async function tryClipboardEventStage(
   editorText: () => string,
   timeoutMs: number
 ): Promise<string | null> {
-  console.count('[Injector] Strategy: ClipboardEvent');
-
   const dataTransfer = new DataTransfer();
   dataTransfer.items.add(text, 'text/plain');
   const pasteEvent = new ClipboardEvent('paste', {
@@ -588,7 +541,6 @@ async function tryClipboardEventStage(
   });
 
   const snapshot = editorText();
-  console.log('[Injector] BEFORE ClipboardEvent paste:', JSON.stringify(snapshot));
 
   // Attach observer BEFORE dispatch — never misses a sync update
   const changePromise = waitUntilEditorChanges(inputEl, snapshot, timeoutMs);
@@ -597,7 +549,6 @@ async function tryClipboardEventStage(
   const changed = await changePromise;
 
   if (changed) {
-    console.log('[Injector] Stage 1 wrote text. Stages 2–3 SKIPPED.');
     return 'ClipboardEvent("paste")';
   }
 

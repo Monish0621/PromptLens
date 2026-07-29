@@ -6,24 +6,12 @@ export default defineContentScript({
   matches: ['<all_urls>'],
   allFrames: false,
   main() {
-    console.log("[Overlay] Script Loaded", {
-        href: window.location.href,
-        isTopFrame: window.top === window.self,
-        frameElement: window.frameElement,
-        origin: window.location.origin
-    });
-
-    console.log("[Overlay] main()", {
-        href: window.location.href,
-        isTopFrame: window.top === window.self
-    });
-
     if (window.top !== window.self) {
       return; // Restrict overlay to top-level window context only
     }
 
     if ((window as any).__llmContextCaptureOverlayLoaded) {
-      console.log('PromptLens overlay script already loaded, skipping registration.');
+      logger.info('PromptLens overlay script already loaded, skipping registration.');
       return;
     }
     (window as any).__llmContextCaptureOverlayLoaded = true;
@@ -45,10 +33,6 @@ export default defineContentScript({
       }
 
       if (message.action === 'ACTIVATE_OVERLAY') {
-        console.log("[Overlay] ACTIVATE_OVERLAY", {
-            href: location.href,
-            isTopFrame: window.top === window.self
-        });
         logger.info(`Message received: ACTIVATE_OVERLAY (mode="${message.mode || 'snip'}")`);
         if (isOverlayActive) {
           cleanup();
@@ -862,13 +846,6 @@ export default defineContentScript({
       if (!isDragging) return;
       isDragging = false;
 
-      console.count("[Overlay] onMouseUp");
-      console.log("[Overlay] onMouseUp()", {
-          href: location.href,
-          isTopFrame: window.top === window.self,
-          timestamp: Date.now()
-      });
-
       const currentX = e.clientX;
       const currentY = e.clientY;
 
@@ -888,12 +865,6 @@ export default defineContentScript({
           devicePixelRatio: window.devicePixelRatio || 1
         };
 
-        console.log("[Overlay] REGION_SELECTED", {
-            href: location.href,
-            isTopFrame: window.top === window.self,
-            coords
-        });
-        console.count("[Overlay] REGION_SELECTED");
         logger.info(`Selection completed: x=${x}, y=${y}, width=${w}, height=${h}`);
         logger.info('Overlay ➔ Background: Sending REGION_SELECTED');
         chrome.runtime.sendMessage({

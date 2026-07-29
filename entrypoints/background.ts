@@ -680,11 +680,6 @@ export default defineBackground(() => {
   chrome.runtime.onMessage.addListener((message: any, sender: chrome.runtime.MessageSender, sendResponse: (response?: any) => void) => {
     // 1. Coordinates received from Overlay Content Script
     if (message.action === 'REGION_SELECTED') {
-      console.log("[Background] REGION_SELECTED received", {
-          senderTab: sender.tab?.id,
-          senderFrameId: sender.frameId,
-          coords: message.coords
-      });
       logger.info('Message received: REGION_SELECTED');
       logger.info('Message handled: Initiating handleRegionSelected processing flow');
       handleRegionSelected(message.mode, message.coords, sender.tab)
@@ -828,9 +823,6 @@ export default defineBackground(() => {
     coords: Coords,
     activeTab?: chrome.tabs.Tab
   ) {
-    console.count("[Background] handleRegionSelected");
-    console.trace("[Background] handleRegionSelected stack");
-
     logger.info(`handleRegionSelected initiated: mode=${mode}, coords=${JSON.stringify(coords)}`);
     if (!activeTab || !activeTab.id || !activeTab.windowId) {
       const err = new Error('No active tab context available');
@@ -844,7 +836,6 @@ export default defineBackground(() => {
       await PipelineTracker.updateStep('Coordinates', 'SUCCESS');
 
       // 1. Capture visible tab viewport
-      console.count("[Pipeline] captureVisibleTab");
       logger.info('Background ➔ Capture: Triggering chrome.tabs.captureVisibleTab...');
       let viewportDataUrl = '';
       try {
@@ -862,7 +853,6 @@ export default defineBackground(() => {
       await setupOffscreenDocument();
 
       // 3. Request offscreen to crop screenshot
-      console.count("[Pipeline] cropScreenshot");
       logger.info('Background ➔ Offscreen: Dispatching CROP_SCREENSHOT action to offscreen');
       let cropResponse: any = null;
       try {
@@ -896,7 +886,6 @@ export default defineBackground(() => {
         }).catch(() => {});
 
         // Store image in session storage history
-        console.count("[Pipeline] saveHistory");
         const item = await saveToHistory('image', croppedDataUrl);
 
         // Focus tab/window so content script has permission to write to clipboard
@@ -911,7 +900,6 @@ export default defineBackground(() => {
         }
 
         // Execute clipboard write via Tab content script context
-        console.count("[Pipeline] writeClipboard");
         logger.info('Background ➔ Content: Requesting content script to write PNG image to system clipboard');
         let clipboardSuccess = false;
         try {
@@ -937,7 +925,6 @@ export default defineBackground(() => {
         }
         
         // Route image into the correct AI tab (auto or popup-selected)
-        console.count("[Pipeline] dispatchInjection");
         const injectionId = 'inj-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
         logger.info(`Background: Routing image snip (injectionId: ${injectionId}) to AI tab via routeInjection`);
         await routeInjection(
@@ -947,7 +934,6 @@ export default defineBackground(() => {
 
       } else if (mode === 'ocr') {
         // Request offscreen to perform OCR
-        console.count("[OCR] start");
         logger.info('Background ➔ Offscreen: Dispatching RUN_OCR action to offscreen');
         let ocrResponse: any = null;
         try {
