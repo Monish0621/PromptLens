@@ -707,6 +707,7 @@ export default defineContentScript({
 
       function closeWithAnimation() {
         panel.classList.add('exiting');
+        chrome.storage.local.remove('pendingInjection').catch(e => console.error(e));
         setTimeout(cleanupShareSheet, 200);
       }
 

@@ -188,6 +188,9 @@ export default defineBackground(() => {
         }
       } catch {}
 
+      // Clear any stale pending injection from a previous extension lifecycle
+      chrome.storage.local.remove('pendingInjection').catch(() => {});
+
       // Initial proactive scan of open tabs on background start
       await this.reScanAllTabs();
 

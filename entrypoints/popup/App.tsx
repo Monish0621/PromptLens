@@ -14,7 +14,8 @@ import {
   Bug,
   Cpu,
   Download,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import './App.css';
 import { createLogger, LogEntry, TraceData } from '../../utils/logger';
@@ -171,6 +172,13 @@ export default function App() {
       const res = await chrome.storage.local.get('pendingInjection');
       const pending: PendingInjection | undefined = res.pendingInjection as PendingInjection | undefined;
       if (pending && pending.candidates?.length >= 1) {
+        // Expire if older than 5 minutes
+        if (Date.now() - pending.timestamp > 5 * 60 * 1000) {
+          await chrome.storage.local.remove('pendingInjection');
+          setPendingInjection(null);
+          return;
+        }
+
         // Pre-select all candidates
         setPendingInjection(pending);
         setSelectedTabIds(new Set(pending.candidates.map(c => c.tabId)));
@@ -305,6 +313,7 @@ export default function App() {
 
       // Clear the pending state after a short display delay
       setTimeout(() => {
+        chrome.storage.local.remove('pendingInjection').catch(err => logger.error('Failed to clear pendingInjection storage', err));
         setPendingInjection(null);
         setSelectedTabIds(new Set());
         setInjectResults({});
@@ -314,6 +323,19 @@ export default function App() {
       logger.error('Dispatch injection failed', err);
       setErrorMsg(err.message || 'Injection dispatch failed');
       setIsDispatching(false);
+    }
+  };
+
+  // Cancel pending injection
+  const handleCancelInjection = async () => {
+    logger.info('User cancelled injection from popup');
+    try {
+      await chrome.storage.local.remove('pendingInjection');
+      setPendingInjection(null);
+      setSelectedTabIds(new Set());
+      setInjectResults({});
+    } catch (err: any) {
+      logger.error('Failed to cancel injection', err);
     }
   };
 
@@ -491,6 +513,8 @@ export default function App() {
     try {
       await chrome.storage.session.set({ captureHistory: [] });
       setHistory([]);
+      await chrome.storage.local.remove('pendingInjection');
+      setPendingInjection(null);
     } catch (err) {
       console.error('Clear failed:', err);
     }
@@ -606,9 +630,18 @@ export default function App() {
               <Sparkles className="w-4 h-4 text-indigo-400 animate-pulse" />
               <span className="text-xs font-bold text-indigo-200">Inject Captured Context</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-mono">
-              {selectedTabIds.size} of {pendingInjection.candidates.length} selected
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-400 font-mono">
+                {selectedTabIds.size} of {pendingInjection.candidates.length} selected
+              </span>
+              <button
+                onClick={handleCancelInjection}
+                className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                title="Cancel Injection"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5 max-h-[110px] overflow-y-auto pr-1 scrollbar-thin">
