@@ -360,6 +360,8 @@ export interface NormalizationOptions {
   // Finalization (2B.3)
   sharpen:                boolean;
   sharpenAmount:          number;
+  // Preset
+  preset?:                OCRPreset;
   // Debug
   preprocessSnapshots:    boolean;
 }

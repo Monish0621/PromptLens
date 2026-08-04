@@ -59,6 +59,8 @@ export class PreprocessStage implements OCRStage {
         // ── Finalization (2B.3) ───────────────────────────────────────────
         sharpen:                cfg.sharpen,
         sharpenAmount:          cfg.sharpenAmount,
+        // ── Preset ────────────────────────────────────────────────────────
+        preset:                 ctx.config.preset,
         // ── Debug ────────────────────────────────────────────────────────
         preprocessSnapshots:    debug.preprocessSnapshots,
       });

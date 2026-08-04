@@ -15,6 +15,7 @@ import { MedianNoiseReductionFilter }                                        fro
 import { MorphologyCleanupFilter }                                           from '../preprocessing/filters/morphologyFilter';
 import { DeskewFilter }                                                      from '../preprocessing/filters/deskewFilter';
 import { SharpenFilter }                                                     from '../preprocessing/filters/sharpenFilter';
+import { AdaptiveInvertFilter }                                           from '../preprocessing/filters/invertFilter';
 import { ocrLog }                                                            from './ocrLogger';
 
 export type { CanvasModel, SnapshotReference } from '../preprocessing/imageFilter';
@@ -77,6 +78,7 @@ export async function normalizeImage(
   const filters = [
     new TrimTransparentBordersFilter(),
     new SmartUpscaleFilter(),
+    new AdaptiveInvertFilter(),
     new AdaptiveGrayscaleFilter(),
     new ContrastEnhancementFilter(),
     new AdaptiveThresholdFilter(),

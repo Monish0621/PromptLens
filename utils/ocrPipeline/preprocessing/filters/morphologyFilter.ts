@@ -18,6 +18,7 @@ export class MorphologyCleanupFilter implements ImageFilter {
 
   shouldRun(_model: CanvasModel, options: NormalizationOptions): [true] | [false, string] {
     if (!options.enableMorphology) return [false, 'disabled in config'];
+    if (options.preset === 'code') return [false, 'Bypassed for code preset to preserve thin punctuation'];
     const opStr = options.morphologyOperation as string;
     if (opStr === MorphologyOperation.EROSION)  this._operation = MorphologyOperation.EROSION;
     else if (opStr === MorphologyOperation.DILATION) this._operation = MorphologyOperation.DILATION;

@@ -23,6 +23,59 @@ export default defineContentScript({
     let ctx: CanvasRenderingContext2D | null = null;
     let startX = 0;
     let startY = 0;
+
+    function showProcessingToast(message: string) {
+      const toast = document.createElement('div');
+      toast.style.position = 'fixed';
+      toast.style.top = '20px';
+      toast.style.right = '20px';
+      toast.style.zIndex = '999999999';
+      toast.style.background = 'rgba(15, 23, 42, 0.92)';
+      toast.style.color = '#f8fafc';
+      toast.style.padding = '10px 16px';
+      toast.style.borderRadius = '10px';
+      toast.style.fontSize = '13px';
+      toast.style.fontWeight = '600';
+      toast.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+      toast.style.boxShadow = '0 10px 25px -5px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.1)';
+      toast.style.display = 'flex';
+      toast.style.alignItems = 'center';
+      toast.style.gap = '10px';
+      toast.style.backdropFilter = 'blur(12px)';
+      toast.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-8px)';
+
+      const spinner = document.createElement('div');
+      spinner.style.width = '14px';
+      spinner.style.height = '14px';
+      spinner.style.border = '2px solid rgba(255,255,255,0.2)';
+      spinner.style.borderTopColor = '#38bdf8';
+      spinner.style.borderRadius = '50%';
+      spinner.style.animation = 'promptlens-spin 0.8s linear infinite';
+
+      const styleTag = document.createElement('style');
+      styleTag.textContent = `@keyframes promptlens-spin { to { transform: rotate(360deg); } }`;
+      document.head.appendChild(styleTag);
+
+      const textNode = document.createElement('span');
+      textNode.textContent = message;
+
+      toast.appendChild(spinner);
+      toast.appendChild(textNode);
+      document.body.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+      });
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-8px)';
+        setTimeout(() => toast.remove(), 250);
+      }, 1800);
+    }
     let isDragging = false;
 
     // Listen for messages from the background script
@@ -867,6 +920,9 @@ export default defineContentScript({
 
         logger.info(`Selection completed: x=${x}, y=${y}, width=${w}, height=${h}`);
         logger.info('Overlay ➔ Background: Sending REGION_SELECTED');
+        if (mode === 'ocr') {
+          showProcessingToast('Extracting text with local OCR...');
+        }
         chrome.runtime.sendMessage({
           action: 'REGION_SELECTED',
           mode,

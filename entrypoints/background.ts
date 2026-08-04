@@ -30,9 +30,25 @@ export default defineBackground(() => {
   });
 
   let offscreenPromise: Promise<void> | null = null;
+  let offscreenIdleTimer: any = null;
+  const OFFSCREEN_IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+  function scheduleOffscreenIdleCleanup() {
+    if (offscreenIdleTimer) clearTimeout(offscreenIdleTimer);
+    offscreenIdleTimer = setTimeout(async () => {
+      logger.info('Offscreen document idle timeout (5m) reached — closing offscreen context');
+      await closeOffscreenDocument();
+      offscreenIdleTimer = null;
+    }, OFFSCREEN_IDLE_TIMEOUT_MS);
+  }
 
   // Ensure the offscreen document is opened with a persistent set of reasons
   async function setupOffscreenDocument() {
+    if (offscreenIdleTimer) {
+      clearTimeout(offscreenIdleTimer);
+      offscreenIdleTimer = null;
+    }
+
     if (offscreenPromise) {
       logger.debug('Awaiting existing offscreen document creation promise');
       return offscreenPromise;
@@ -72,6 +88,7 @@ export default defineBackground(() => {
     try {
       await offscreenPromise;
       logger.info('Offscreen: setupOffscreenDocument completed creation');
+      scheduleOffscreenIdleCleanup();
     } finally {
       offscreenPromise = null;
     }
@@ -79,6 +96,10 @@ export default defineBackground(() => {
 
   // Close the offscreen document
   async function closeOffscreenDocument() {
+    if (offscreenIdleTimer) {
+      clearTimeout(offscreenIdleTimer);
+      offscreenIdleTimer = null;
+    }
     logger.debug('Requesting offscreen document shutdown');
     try {
       const contexts = await (chrome.runtime as any).getContexts({
@@ -1013,10 +1034,8 @@ export default defineBackground(() => {
         );
       }
 
-      // Clean up offscreen document since we are done with image operations
-      logger.info('Background ➔ Offscreen: Requesting offscreen document shutdown');
-      await closeOffscreenDocument();
-      logger.info('Offscreen document closed successfully');
+      // Schedule offscreen document idle cleanup (reused across consecutive OCR requests)
+      scheduleOffscreenIdleCleanup();
 
     } catch (pipelineErr: any) {
       logger.error(`Pipeline selected region crop flow crashed: ${pipelineErr.message}`, pipelineErr);

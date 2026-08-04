@@ -15,6 +15,7 @@ export class MedianNoiseReductionFilter implements ImageFilter {
 
   shouldRun(_model: CanvasModel, options: NormalizationOptions): [true] | [false, string] {
     if (!options.enableMedianFilter) return [false, 'disabled in config'];
+    if (options.preset === 'code') return [false, 'Bypassed for code preset to preserve thin punctuation'];
     const k = options.medianKernelSize;
     this._kernelSize = (k === 5) ? 5 : 3;
     return [true];

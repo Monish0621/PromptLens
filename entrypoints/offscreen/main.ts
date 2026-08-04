@@ -86,14 +86,14 @@ async function handleCrop(
         const canvas = document.createElement('canvas');
         
         // Scale dimensions based on the captured pixel density (devicePixelRatio)
-        const scale = coords.devicePixelRatio || 1;
-        const cropX = coords.x * scale;
-        const cropY = coords.y * scale;
-        const cropW = coords.width * scale;
-        const cropH = coords.height * scale;
+        const scale = coords.devicePixelRatio || window.devicePixelRatio || 1;
+        const cropX = Math.max(0, Math.round(coords.x * scale));
+        const cropY = Math.max(0, Math.round(coords.y * scale));
+        const cropW = Math.min(img.naturalWidth - cropX, Math.round(coords.width * scale));
+        const cropH = Math.min(img.naturalHeight - cropY, Math.round(coords.height * scale));
 
-        canvas.width = cropW;
-        canvas.height = cropH;
+        canvas.width = Math.max(1, cropW);
+        canvas.height = Math.max(1, cropH);
 
         const ctx = canvas.getContext('2d');
         if (!ctx) {
