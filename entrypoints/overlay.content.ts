@@ -878,6 +878,8 @@ export default defineContentScript({
 
     function onMouseDown(e: MouseEvent) {
       if (e.button !== 0) return; // Only left click
+      e.preventDefault();
+      e.stopPropagation();
       startX = e.clientX;
       startY = e.clientY;
       isDragging = true;
@@ -885,6 +887,8 @@ export default defineContentScript({
 
     function onMouseMove(e: MouseEvent) {
       if (!isDragging) return;
+      e.preventDefault();
+      e.stopPropagation();
       const currentX = e.clientX;
       const currentY = e.clientY;
 
@@ -899,6 +903,20 @@ export default defineContentScript({
     function onMouseUp(e: MouseEvent) {
       if (!isDragging) return;
       isDragging = false;
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Intercept and swallow any click event dispatched to underlying elements on mouseup
+      const captureClickSuppressor = (clickEvt: MouseEvent) => {
+        clickEvt.preventDefault();
+        clickEvt.stopPropagation();
+        clickEvt.stopImmediatePropagation();
+        window.removeEventListener('click', captureClickSuppressor, true);
+      };
+      window.addEventListener('click', captureClickSuppressor, true);
+      setTimeout(() => {
+        window.removeEventListener('click', captureClickSuppressor, true);
+      }, 300);
 
       const currentX = e.clientX;
       const currentY = e.clientY;

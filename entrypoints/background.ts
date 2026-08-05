@@ -301,6 +301,7 @@ export default defineBackground(() => {
 
       const match = AI_TAB_PATTERNS.find(p => p.test(urlObj));
       if (match) {
+        const existing = this.registry.get(tab.id);
         const registered: RegisteredAiTab = {
           tabId: tab.id,
           windowId: tab.windowId,
@@ -308,7 +309,7 @@ export default defineBackground(() => {
           name: match.name,
           url: tab.url,
           title: tab.title || match.name,
-          favIconUrl: tab.favIconUrl,
+          favIconUrl: tab.favIconUrl || existing?.favIconUrl,
           ready: true,
           timestamp: Date.now()
         };
@@ -354,6 +355,15 @@ export default defineBackground(() => {
       this.registry.set(senderTabId, updated);
       this.syncStorage();
       logger.info(`AiTabRegistry: Self-registration validated & saved for tab ${senderTabId} (${provider})`);
+
+      // Asynchronously refresh native Chrome tab properties (including favIconUrl)
+      chrome.tabs.get(senderTabId).then((tab: chrome.tabs.Tab) => {
+        if (tab && tab.favIconUrl && tab.favIconUrl !== updated.favIconUrl) {
+          updated.favIconUrl = tab.favIconUrl;
+          this.registry.set(senderTabId, updated);
+          this.syncStorage();
+        }
+      }).catch(() => {});
     }
 
     public unregister(tabId: number, reason: string) {
@@ -372,6 +382,9 @@ export default defineBackground(() => {
         try {
           const tab = await chrome.tabs.get(c.tabId);
           if (tab) {
+            if (tab.favIconUrl) {
+              c.favIconUrl = tab.favIconUrl;
+            }
             valid.push(c);
           }
         } catch {
