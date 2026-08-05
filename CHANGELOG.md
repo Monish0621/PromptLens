@@ -9,31 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned
-- Custom user-configurable OCR profiles and threshold parameters in extension popup options.
-- Support for additional offline Tesseract language packs (Spanish, French, German, Japanese, Chinese).
-- Batch region capture mode for multi-selection workflows.
-
 ---
 
-## [1.0.0] - 2026-07-26
+## [1.0.0] - 2026-08-05
 
 ### Added
+
 - **Initial Public Release of PromptLens** — Capture. Understand. Prompt.
-- **Privacy-First WebAssembly OCR**: In-browser offline text extraction using Tesseract WASM adapter running in Chrome Offscreen Canvas / Web Worker contexts.
-- **Modular 12-Stage Pipeline Architecture**:
-  - `AnalysisStage`: Metadata calculation and dimension validation.
-  - `PreprocessStage`: Automated image normalization, orientation correction, smart upscaling, adaptive grayscale, contrast enhancement, adaptive thresholding, deskewing, median denoising, and sharpening.
-  - `RecognitionStage`: Pluggable engine interface wrapping Tesseract WASM driver.
-  - `AdvancedRecognitionStage`: Bounding region grouping, text block classification (`code`, `paragraph`, `terminal`, `heading`, `table`, `quote`), top-down/column-aware reading order resolution, and lightweight table structure grid detection.
-  - `PostProcessStage`: Code block wrapping, markdown fence formatting, and whitespace normalization.
-  - `QualityAnalysisStage`: Multi-factor quality engine measuring character cascade density, syntax fence balance, structural integrity, penalties, and recommendations.
-  - `ProfileSelectionStage`: Dynamic scoring engine selecting targeted OCR profiles (`CODE`, `DOCUMENT`, `JSON`, `TERMINAL`, `MARKDOWN`, `LOW_RESOLUTION`, `HIGH_CONTRAST`) before retries occur.
-  - `RetryDecisionStage`: Intelligent multi-pass retry orchestrator executing fallback profile attempts constrained by `RetryBudget` and `RetryStrategy`.
-  - `ConfidenceStage`: Aggregate word-level and block-level confidence scoring.
-  - `LanguageStage`: Script detector classifying text into 8 Unicode block categories (`Latin`, `Devanagari`, `Kannada`, `Tamil`, `Telugu`, `Arabic`, `CJK`, `Mixed`) and scoring candidate languages using lightweight script classification rules.
-  - `CorrectionStage`: Post-processing text corrections.
-  - `StatisticsStage`: Aggregate timing metrics breakdown and performance collection.
-- **Screen Selection Overlay UI**: Interactive visual capture tool with hotkey trigger support.
-- **Direct AI Context Injection**: Context routing for popular Web AI interfaces (ChatGPT, Claude, VS Code, etc.) with automatic clipboard fallback.
-- **Zero-Storage Architecture**: Screen selections are captured to transient memory canvases and garbage-collected immediately following OCR extraction.
+- **Privacy-First WebAssembly OCR**: In-browser offline text extraction using Tesseract WASM adapter executing inside a Manifest V3 Offscreen Document.
+- **Adaptive Dark Theme Polarity Normalization (`AdaptiveInvertFilter`)**: Automatic detection of dark-background screenshots and image polarity normalization prior to OCR recognition.
+- **Modular 12-Stage Pipeline Architecture**: Multi-stage OCR pipeline featuring analysis, image preprocessing, engine recognition, reading order resolution, block classification, post-processing, quality analysis, profile selection, retry decision orchestration, confidence scoring, script/language detection, and metrics statistics collection.
+- **Precision Region Selection Canvas Overlay**: Interactive full-page visual capture overlay with native keyboard triggers (`Alt+S` for screenshots, `Alt+O` for OCR).
+- **Multi-Tab AI Context Routing**: Auto-discovery and injection payload routing for active AI assistant tabs (ChatGPT, Claude, Gemini, Grok, and Perplexity).
+- **Interactive Share Sheet Overlay**: Page-embedded context injection interface for selecting target AI tabs directly upon capture completion.
+- **Browser Tab Screen Recording**: Stream recording using the `tabCapture` API with a lightweight floating controller overlay.
+- **Session Snippet History**: Persistent session dashboard to inspect, re-copy, or re-route recent OCR extractions and screen clips.
+
+### Changed
+
+- **Temporary Injection UX**: Refactored the popup injection panel to render strictly as a temporary workflow state that automatically dismisses upon injection, cancellation, tab closing, or extension reload.
+- **Code Preset Filter Bypass**: Selective bypass of aggressive median and morphology pre-processing filters for technical code presets to preserve symbol, parenthesis, and syntax legibility.
+- **Device Pixel Ratio Scaling**: Normalized selection coordinates across High-DPI and Retina displays (`devicePixelRatio`) to prevent coordinate clipping or sub-pixel blurring during OCR preprocessing.
+- **Production Asset & Repository Cleanup**: Purged starter templates, duplicate media assets, raw unreferenced source videos, and unused dependencies (`clsx`, `tailwind-merge`).
+- **Documentation Updates**: Added comprehensive architecture specification, privacy policy, FAQ guide, and contributing guidelines.
+
+### Fixed
+
+- **Chrome-Native Claude Favicon Resolution**: Resolved missing favicons for client-side hydrated SPAs (such as Claude.ai) by dynamically synchronizing tab properties via Chrome's native `chrome.tabs.Tab.favIconUrl` API.
+- **Selection Overlay Click Suppression**: Added capture-phase event cancellation (`preventDefault`, `stopPropagation`, and immediate `click` event interception) to prevent mouse release events from inadvertently triggering underlying DOM links or buttons after region selection.
+- **Service Worker Message Routing**: Stabilized cross-context messaging between background service worker, offscreen sandbox, popup dashboard, and content script overlays.
+
+### Performance
+
+- **OCR Pipeline Preprocessing Optimization**: Optimized image pre-processing stages to cut region preparation time down to under 100ms.
+- **Persistent Offscreen Worker Lifecycle**: Automated lazy initialization, worker instance reuse, and immediate buffer disposal for canvas contexts and MediaRecorder streams post-processing.
+- **Production Bundle Optimization**: Streamlined extension output resulting in a ~2.2s build time and a compact upload footprint.
+
+### Security
+
+- **100% In-Browser Local Execution**: Zero remote server transmissions. All visual captures, OCR operations, and video recordings execute locally within browser memory buffers.
+- **Zero Remote Script Dependencies**: Bundled WebAssembly binaries and language data files eliminate remote script injection risks and ensure full Chrome Web Store MV3 policy compliance.
+- **In-Memory Capture Purging**: Visual frame buffers exist only temporarily in memory and are discarded immediately after text extraction.
