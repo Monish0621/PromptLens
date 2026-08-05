@@ -1,8 +1,8 @@
 {
-  "name": "wxt-react-starter",
-  "description": "manifest.json description",
+  "name": "promptlens",
+  "description": "A privacy-first Chrome extension that captures screenshots, extracts text locally using OCR, records browser workflows, and sends AI-ready prompts to ChatGPT, Claude, Gemini, Grok, and Perplexity.",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "wxt",
@@ -15,11 +15,9 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
-    "clsx": "^2.1.1",
     "lucide-react": "^1.26.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.6.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {

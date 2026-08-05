@@ -216,42 +216,16 @@ export default defineBackground(() => {
     }
 
     public async reScanAllTabs() {
-      const DEBUG_DIAGNOSTICS = true; // Development diagnostics flag
-
-      if (DEBUG_DIAGNOSTICS) {
-        console.groupCollapsed('PromptLens Startup');
-        console.info('[Startup] Background service worker started');
-        console.info('[Startup] Scanning existing tabs...');
-      }
-
       try {
         const tabs = await chrome.tabs.query({});
         const currentIds = new Set<number>();
-        let foundCount = 0;
 
         for (const tab of tabs) {
-          if (!tab.id) {
-            if (DEBUG_DIAGNOSTICS) {
-              console.warn('[Startup][Warning] Failed to register tab: Missing tab ID');
-            }
-            continue;
-          }
-
-          if (!tab.url) {
-            if (DEBUG_DIAGNOSTICS) {
-              console.warn(`[Startup][Warning] Failed to register tab ${tab.id}: Restricted or missing URL permission`);
-            }
-            continue;
-          }
+          if (!tab.id || !tab.url) continue;
 
           const matched = this.evaluateTab(tab);
           if (matched) {
             currentIds.add(tab.id);
-            foundCount++;
-
-            if (DEBUG_DIAGNOSTICS) {
-              console.info(`[Startup] Registered ${matched.provider}\n  Tab: ${matched.tabId}\n  Window: ${matched.windowId}\n  URL: ${matched.url}`);
-            }
 
             // Proactively re-inject content script to recover orphaned script instances after extension reload
             try {
@@ -259,11 +233,7 @@ export default defineBackground(() => {
                 target: { tabId: tab.id },
                 files: ['content-scripts/content.js']
               });
-            } catch (injErr: any) {
-              if (DEBUG_DIAGNOSTICS) {
-                console.warn(`[Startup][Warning] Content script re-injection notice for tab ${tab.id}: ${injErr.message}`);
-              }
-            }
+            } catch {}
           }
         }
 
@@ -274,23 +244,8 @@ export default defineBackground(() => {
           }
         }
         this.syncStorage();
-
-        if (DEBUG_DIAGNOSTICS) {
-          console.info(`[Startup] Found ${foundCount} supported AI tab(s)`);
-          if (foundCount === 0) {
-            console.info('[Startup] No supported AI tabs found.');
-          }
-          console.info('[Startup] Registry rebuilt successfully');
-          console.info(`[Startup] Active AI tabs: ${this.registry.size}`);
-        }
       } catch (err: any) {
-        if (DEBUG_DIAGNOSTICS) {
-          console.warn('[Startup][Warning] Failed to rebuild AI Tab Registry: ' + err.message);
-        }
-      } finally {
-        if (DEBUG_DIAGNOSTICS) {
-          console.groupEnd();
-        }
+        logger.warn('Failed to rebuild AI Tab Registry: ' + err.message);
       }
     }
 
@@ -392,9 +347,6 @@ export default defineBackground(() => {
         }
       }
       logger.info(`[BACKGROUND] Registry read: ${valid.length} active AI tabs found`);
-      for (const c of valid) {
-        console.info(`Registry Entry:\n  Provider: ${c.provider}\n  Tab ID: ${c.tabId}\n  Window ID: ${c.windowId}\n  URL: ${c.url}\n  Title: ${c.title}`);
-      }
       return valid;
     }
 
@@ -500,7 +452,6 @@ export default defineBackground(() => {
    * Returns { success, error? }
    */
   async function injectIntoTab(tab: RegisteredAiTab, payload: object): Promise<{ success: boolean; error?: string }> {
-    console.info(`Actual dispatch:\n  tabId: ${tab.tabId}\n  provider: ${tab.provider}`);
     const ready = await ensureContentScriptInTab(tab.tabId);
     if (!ready.success) {
       return { success: false, error: ready.reason || `Content script could not be loaded in ${tab.name} tab` };
@@ -824,7 +775,6 @@ export default defineBackground(() => {
             results[tabId] = { success: false, error: 'Tab no longer open' };
             continue;
           }
-          console.info(`Selected destinations:\n  Tab ID: ${tab.tabId}\n  Provider: ${tab.provider}\n  URL: ${tab.url}`);
           results[tabId] = await injectIntoTab(tab, payload);
         }
 

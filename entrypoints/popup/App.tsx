@@ -11,14 +11,11 @@ import {
   Clock, 
   AlertCircle,
   AlertTriangle,
-  Bug,
-  Cpu,
   Download,
-  RefreshCw,
   X
 } from 'lucide-react';
 import './App.css';
-import { createLogger, LogEntry, TraceData } from '../../utils/logger';
+import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('Popup');
 
@@ -60,26 +57,12 @@ export default function App() {
   const [injectResults, setInjectResults] = useState<Record<number, 'pending' | 'success' | 'fail'>>({});
   const [isDispatching, setIsDispatching] = useState(false);
 
-  // Debug settings & console state
-  const [debugMode, setDebugMode] = useState(false);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [copiedLogs, setCopiedLogs] = useState(false);
-  const [activeTrace, setActiveTrace] = useState<TraceData | null>(null);
-
-  // Live developer tool statuses
-  const [offscreenStatus, setOffscreenStatus] = useState<'Active' | 'Inactive'>('Inactive');
-  const [lastScreenshot, setLastScreenshot] = useState<{ width: number; height: number; size: number } | null>(null);
-  const [ocrStatus, setOcrStatus] = useState<{ loaded: boolean; lang: string; lastTime: string } | null>(null);
-  const [injectionStatus, setInjectionStatus] = useState<{ targetDetected: boolean; method: string } | null>(null);
-
   const recordingIntervalRef = useRef<number | null>(null);
 
   // Load configuration, history, and status metrics on mount
   useEffect(() => {
-    loadSettings();
     loadHistory();
     checkCurrentTab();
-    refreshDevStats();
     loadPendingInjection();
 
     // Check active recording state on popup open
@@ -104,13 +87,6 @@ export default function App() {
       }
       if (message.action === 'RECORDING_AUTO_STOPPED') {
         stopRecordingTimer();
-        refreshDevStats();
-      }
-      if (message.action === 'LOGS_UPDATED') {
-        setLogs(message.logs || []);
-      }
-      if (message.action === 'TRACE_UPDATED') {
-        setActiveTrace(message.trace || null);
       }
       if (message.action === 'PENDING_INJECTION_READY') {
         // Background just stored a new pendingInjection — refresh immediately
@@ -145,18 +121,7 @@ export default function App() {
     };
   }, []);
 
-  const loadSettings = async () => {
-    try {
-      const res = await chrome.storage.local.get(['debugMode', 'debugLogs', 'activeTrace']);
-      setDebugMode(!!res.debugMode);
-      setLogs((res.debugLogs as LogEntry[]) || []);
-      if (res.activeTrace) {
-        setActiveTrace(res.activeTrace as TraceData);
-      }
-    } catch (err) {
-      console.error('Settings load failed:', err);
-    }
-  };
+
 
   const loadHistory = async () => {
     try {
@@ -235,40 +200,7 @@ export default function App() {
     }
   };
 
-  const refreshDevStats = async () => {
-    try {
-      // 1. Offscreen context check
-      try {
-        const contexts = await (chrome.runtime as any).getContexts({
-          contextTypes: ['OFFSCREEN_DOCUMENT']
-        });
-        setOffscreenStatus(contexts.length > 0 ? 'Active' : 'Inactive');
-      } catch {
-        setOffscreenStatus('Inactive');
-      }
 
-      // 2. Load latest action stats
-      const stats = await chrome.storage.local.get(['lastScreenshot', 'ocrStatus', 'injectionStatus']);
-      if (stats.lastScreenshot) setLastScreenshot(stats.lastScreenshot as any);
-      if (stats.ocrStatus) setOcrStatus(stats.ocrStatus as any);
-      if (stats.injectionStatus) setInjectionStatus(stats.injectionStatus as any);
-    } catch (err) {
-      console.warn('Failed to refresh stats:', err);
-    }
-  };
-
-  // Toggle debug mode
-  const handleToggleDebug = async () => {
-    const nextMode = !debugMode;
-    setDebugMode(nextMode);
-    await chrome.storage.local.set({ debugMode: nextMode });
-    logger.info(`Debug mode toggled to: ${nextMode ? 'ON' : 'OFF'}`);
-    if (!nextMode) {
-      // Clear logs from state/storage to prevent bloat when turned off
-      await chrome.storage.local.set({ debugLogs: [] });
-      setLogs([]);
-    }
-  };
 
   // Trigger Snip overlay after ensuring message is sent
   const handleTriggerSnip = async (mode: 'snip' | 'ocr') => {
@@ -373,7 +305,6 @@ export default function App() {
         stopRecordingTimer();
       } else {
         logger.info('Recording started successfully');
-        refreshDevStats();
       }
     } catch (err: any) {
       logger.error('Failed to start recording', err);
@@ -393,7 +324,6 @@ export default function App() {
       } else {
         logger.info('Recording stopped and WebM compiled');
         loadHistory();
-        refreshDevStats();
       }
     } catch (err: any) {
       logger.error('Failed to stop recording', err);
@@ -520,44 +450,7 @@ export default function App() {
     }
   };
 
-  // Clear logs
-  const handleClearLogs = async () => {
-    try {
-      await chrome.storage.local.set({ debugLogs: [] });
-      setLogs([]);
-      logger.info('Local debug logs cleared');
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
-  // Copy logs
-  const handleCopyLogs = async () => {
-    try {
-      const logString = logs.map(l => `[${l.timestamp}][${l.module}][${l.level}] ${l.message}`).join('\n');
-      await navigator.clipboard.writeText(logString);
-      setCopiedLogs(true);
-      setTimeout(() => setCopiedLogs(null as any), 1500);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Export logs
-  const handleExportLogs = () => {
-    try {
-      const logString = JSON.stringify(logs, null, 2);
-      const blob = new Blob([logString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `llm_capture_debug_logs_${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   // Helper formatting for timestamps
   const formatTime = (timestamp: number) => {
