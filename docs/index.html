@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy for PromptLens</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --border: #334155;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+    h1 {
+      font-size: 2.2rem;
+      margin-top: 0;
+      color: #fff;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+    h2 {
+      font-size: 1.4rem;
+      margin-top: 32px;
+      color: #cbd5e1;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    p, li {
+      color: #cbd5e1;
+      font-size: 1rem;
+    }
+    strong {
+      color: #fff;
+    }
+    hr {
+      border: 0;
+      height: 1px;
+      background: var(--border);
+      margin: 32px 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+    }
+    th {
+      background: #0f172a;
+      color: #fff;
+    }
+    code {
+      background: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      color: #818cf8;
+    }
+    a {
+      color: #818cf8;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Privacy Policy for PromptLens</h1>
+    <p><strong>Effective Date</strong>: July 26, 2026</p>
+    <p>PromptLens is committed to respecting user privacy. This Privacy Policy explains how PromptLens processes data, why browser permissions are required, and the architecture surrounding local execution.</p>
+    <hr>
+    <h2>1. Local Processing Architecture</h2>
+    <p>PromptLens is designed around local in-browser processing:</p>
+    <ul>
+      <li><strong>Local Execution</strong>: PromptLens is designed to perform OCR processing, image enhancement, layout analysis, and text extraction locally within the browser using bundled WebAssembly components.</li>
+      <li><strong>No External Text Transmission</strong>: PromptLens itself does not transmit captured screenshots or extracted OCR text to external servers during normal operation.</li>
+      <li><strong>In-Memory Selection Processing</strong>: Visual screen selections exist in volatile browser memory buffers during text extraction and are discarded after processing completes.</li>
+    </ul>
+    <hr>
+    <h2>2. Data Handling & Storage</h2>
+    <ul>
+      <li>PromptLens does not maintain external analytics or remote usage tracking infrastructure.</li>
+      <li>PromptLens does not save captured screenshot images to your local disk or file system.</li>
+      <li>Captured image buffers are processed in memory and released following pipeline completion.</li>
+    </ul>
+    <hr>
+    <h2>3. Extension Permissions & Technical Justification</h2>
+    <p>PromptLens requests specific browser permissions required for its core features:</p>
+    <table>
+      <thead>
+        <tr>
+          <th>Permission</th>
+          <th>Technical Justification</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>activeTab</code></td>
+          <td>Required to display the selection overlay interface on the active tab when triggered by the user.</td>
+        </tr>
+        <tr>
+          <td><code>scripting</code></td>
+          <td>Required to inject the screen selection capture overlay into the active page when requested.</td>
+        </tr>
+        <tr>
+          <td><code>offscreen</code></td>
+          <td>Required to create an isolated background offscreen document to run the WebAssembly OCR engine without interrupting main tab performance.</td>
+        </tr>
+      </tbody>
+    </table>
+    <hr>
+    <h2>4. Operational Flow</h2>
+    <ol>
+      <li><strong>User Action</strong>: The user initiates a screen selection via hotkey or extension action.</li>
+      <li><strong>Local Selection</strong>: An overlay script captures the user-selected bounding box region on the screen.</li>
+      <li><strong>In-Memory OCR</strong>: The selection buffer is passed to an isolated Chrome Offscreen document where bundled WebAssembly components extract text locally.</li>
+      <li><strong>Context Formatting & Routing</strong>: Extracted text is formatted and routed to an active AI tab interface or copied to the system clipboard.</li>
+      <li><strong>Memory Cleanup</strong>: Image buffers are released upon pipeline completion.</li>
+    </ol>
+    <hr>
+    <h2>5. Third-Party Libraries</h2>
+    <p>PromptLens uses bundled local dependencies, including the Tesseract WebAssembly engine binary (<code>tesseract-core.wasm</code>) and language data files located within the extension package (<code>public/tesseract/</code>). No external remote scripts are loaded at runtime.</p>
+    <hr>
+    <h2>6. Open-Source Verification</h2>
+    <p>PromptLens is an open-source project. Users and developers may review the source code and local processing implementation on GitHub:</p>
+    <ul>
+      <li><strong>Repository</strong>: <a href="https://github.com/Monish0621/PromptLens" target="_blank">https://github.com/Monish0621/PromptLens</a></li>
+      <li><strong>Issue Tracker</strong>: <a href="https://github.com/Monish0621/PromptLens/issues" target="_blank">https://github.com/Monish0621/PromptLens/issues</a></li>
+    </ul>
+  </div>
+</body>
+</html>
