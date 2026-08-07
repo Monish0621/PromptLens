@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'PromptLens',
-    description: 'Smart Screenshots, Screen Recording, Intelligent Local OCR, AI Context, and Clipboard Workflow',
+    description: 'Capture screenshots, extract text locally with OCR, record browser workflows, and send context to AI assistants.',
     version: '1.0.0',
     permissions: [
       'activeTab',
