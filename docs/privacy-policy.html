@@ -89,62 +89,88 @@
   <div class="container">
     <h1>Privacy Policy for PromptLens</h1>
     <p><strong>Effective Date</strong>: July 26, 2026</p>
-    <p>PromptLens is committed to respecting user privacy. This Privacy Policy explains how PromptLens processes data, why browser permissions are required, and the architecture surrounding local execution.</p>
+    <p>PromptLens is committed to respecting user privacy. This Privacy Policy explains how PromptLens processes data, why specific browser permissions are required, how local storage is used, and the handling of user-initiated third-party AI context routing.</p>
     <hr>
     <h2>1. Local Processing Architecture</h2>
-    <p>PromptLens is designed around local in-browser processing:</p>
+    <p>PromptLens is designed around a local-first processing model:</p>
     <ul>
-      <li><strong>Local Execution</strong>: PromptLens is designed to perform OCR processing, image enhancement, layout analysis, and text extraction locally within the browser using bundled WebAssembly components.</li>
-      <li><strong>No External Text Transmission</strong>: PromptLens itself does not transmit captured screenshots or extracted OCR text to external servers during normal operation.</li>
-      <li><strong>In-Memory Selection Processing</strong>: Visual screen selections exist in volatile browser memory buffers during text extraction and are discarded after processing completes.</li>
+      <li><strong>Local WebAssembly OCR</strong>: All text extraction, image preprocessing, layout analysis, and character recognition execute locally within your browser using bundled WebAssembly components (<code>tesseract-core.wasm</code>).</li>
+      <li><strong>No PromptLens Remote Servers</strong>: PromptLens does not operate external backend servers, cloud OCR endpoints, telemetry trackers, or remote analytics services.</li>
+      <li><strong>In-Memory Image Buffering</strong>: Visual screen selections exist temporarily in volatile browser memory buffers during extraction and are discarded immediately after processing.</li>
     </ul>
     <hr>
-    <h2>2. Data Handling & Storage</h2>
+    <h2>2. Data Handling, Storage & Retention</h2>
     <ul>
-      <li>PromptLens does not maintain external analytics or remote usage tracking infrastructure.</li>
-      <li>PromptLens does not save captured screenshot images to your local disk or file system.</li>
-      <li>Captured image buffers are processed in memory and released following pipeline completion.</li>
+      <li><strong>Screen Captures</strong>: Screenshot regions are held in memory during OCR processing and are not written to your permanent disk or file system by PromptLens.</li>
+      <li><strong>OCR Text & Session History</strong>: Extracted text snippets are stored locally on your device in <code>chrome.storage.local</code> under session history (capped at a maximum of 20 items) so you can review or re-copy recent clips. You can clear your session history at any time.</li>
+      <li><strong>Tab Screen Recording</strong>: Browser tab screen recordings (<code>tabCapture</code>) are processed locally in an offscreen MediaRecorder context. Recording streams are held temporarily in local storage/memory for user review or download and are never transmitted to PromptLens servers.</li>
+      <li><strong>Clipboard Operations</strong>: PromptLens copies extracted text or screen capture images to your system clipboard strictly when you explicitly trigger the copy action.</li>
     </ul>
     <hr>
-    <h2>3. Extension Permissions & Technical Justification</h2>
-    <p>PromptLens requests specific browser permissions required for its core features:</p>
+    <h2>3. Browser Tab Information & AI Destination Routing</h2>
+    <p>PromptLens inspects open browser tabs locally to identify active AI assistant destinations:</p>
+    <ul>
+      <li><strong>Supported AI Services</strong>: OpenAI ChatGPT (<code>chatgpt.com</code>), Anthropic Claude (<code>claude.ai</code>), Google Gemini (<code>gemini.google.com</code>), xAI Grok (<code>grok.com</code>), and Perplexity AI (<code>perplexity.ai</code>).</li>
+      <li><strong>Domain Matching</strong>: PromptLens queries open tab URLs locally using Chrome's native <code>tabs</code> API solely to match supported AI provider domains for candidate destination selection.</li>
+      <li><strong>Non-AI Tab Privacy</strong>: URLs, titles, and activity from non-matching browser tabs are ignored, never recorded, and never stored.</li>
+      <li><strong>User-Initiated Context Routing</strong>: Selected OCR text or screen capture context is delivered to a supported AI service ONLY when you explicitly select a destination tab and click to inject or send. PromptLens never automatically transmits data to third-party services.</li>
+    </ul>
+    <hr>
+    <h2>4. Extension Permissions & Technical Justifications</h2>
+    <p>PromptLens requests only the permissions necessary to deliver its core single-purpose features:</p>
     <table>
       <thead>
         <tr>
           <th>Permission</th>
-          <th>Technical Justification</th>
+          <th>User-Facing Technical Justification</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td><code>activeTab</code></td>
-          <td>Required to display the selection overlay interface on the active tab when triggered by the user.</td>
+          <td>Allows PromptLens to capture the visible page region when you explicitly trigger a screenshot or OCR selection.</td>
+        </tr>
+        <tr>
+          <td><code>tabs</code></td>
+          <td>Allows PromptLens to inspect open tab URLs locally to discover active AI destinations (ChatGPT, Claude, Gemini, Grok, Perplexity) for prompt routing.</td>
         </tr>
         <tr>
           <td><code>scripting</code></td>
-          <td>Required to inject the screen selection capture overlay into the active page when requested.</td>
+          <td>Allows PromptLens to render visual selection overlays and floating recording controls on the active page.</td>
         </tr>
         <tr>
           <td><code>offscreen</code></td>
-          <td>Required to create an isolated background offscreen document to run the WebAssembly OCR engine without interrupting main tab performance.</td>
+          <td>Allows PromptLens to run WebAssembly OCR extraction and tab recording streams in an isolated background document.</td>
+        </tr>
+        <tr>
+          <td><code>storage</code></td>
+          <td>Allows PromptLens to persist user preferences, AI tab destination options, and recent clip history locally using <code>chrome.storage.local</code>.</td>
+        </tr>
+        <tr>
+          <td><code>tabCapture</code></td>
+          <td>Allows PromptLens to capture browser tab video streams when you explicitly start a screen recording workflow.</td>
+        </tr>
+        <tr>
+          <td><code>clipboardWrite</code></td>
+          <td>Allows PromptLens to copy extracted OCR text or screenshots to your system clipboard upon your explicit action.</td>
+        </tr>
+        <tr>
+          <td><code>&lt;all_urls&gt;</code></td>
+          <td>Required to display the interactive visual selection overlay across web pages when you press a hotkey or trigger capture.</td>
         </tr>
       </tbody>
     </table>
     <hr>
-    <h2>4. Operational Flow</h2>
-    <ol>
-      <li><strong>User Action</strong>: The user initiates a screen selection via hotkey or extension action.</li>
-      <li><strong>Local Selection</strong>: An overlay script captures the user-selected bounding box region on the screen.</li>
-      <li><strong>In-Memory OCR</strong>: The selection buffer is passed to an isolated Chrome Offscreen document where bundled WebAssembly components extract text locally.</li>
-      <li><strong>Context Formatting & Routing</strong>: Extracted text is formatted and routed to an active AI tab interface or copied to the system clipboard.</li>
-      <li><strong>Memory Cleanup</strong>: Image buffers are released upon pipeline completion.</li>
-    </ol>
+    <h2>5. Third-Party Data Sharing & Limited Use Compliance</h2>
+    <ul>
+      <li><strong>No Data Selling</strong>: PromptLens does not sell, rent, or trade your personal data or screen content to third parties.</li>
+      <li><strong>No Advertising or Profiling</strong>: PromptLens does not collect or use your data for advertising, targeted marketing, credit evaluation, or user profiling.</li>
+      <li><strong>No Remote Telemetry</strong>: PromptLens does not contain tracking pixels, analytics SDKs, or background surveillance code.</li>
+      <li><strong>Chrome Web Store Limited Use Statement</strong>: PromptLens limits its use and transfer of user data strictly to providing and improving the extension's disclosed single purpose and user-facing features, in full compliance with the Chrome Web Store User Data Policy and Limited Use requirements.</li>
+    </ul>
     <hr>
-    <h2>5. Third-Party Libraries</h2>
-    <p>PromptLens uses bundled local dependencies, including the Tesseract WebAssembly engine binary (<code>tesseract-core.wasm</code>) and language data files located within the extension package (<code>public/tesseract/</code>). No external remote scripts are loaded at runtime.</p>
-    <hr>
-    <h2>6. Open-Source Verification</h2>
-    <p>PromptLens is an open-source project. Users and developers may review the source code and local processing implementation on GitHub:</p>
+    <h2>6. Open-Source Verification & Contact</h2>
+    <p>PromptLens is an open-source project. Users and security researchers may inspect the complete source code, permission definitions, and local processing implementation on GitHub:</p>
     <ul>
       <li><strong>Repository</strong>: <a href="https://github.com/Monish0621/PromptLens" target="_blank">https://github.com/Monish0621/PromptLens</a></li>
       <li><strong>Issue Tracker</strong>: <a href="https://github.com/Monish0621/PromptLens/issues" target="_blank">https://github.com/Monish0621/PromptLens/issues</a></li>
