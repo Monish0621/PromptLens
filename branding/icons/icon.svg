@@ -12,17 +12,17 @@
     </linearGradient>
   </defs>
 
-  <!-- Dark Slate Background Container (#0F172A) -->
-  <rect width="128" height="128" rx="26" fill="#0F172A" />
+  <!-- Full Solid Dark Slate Background Canvas (#0F172A) Edge-to-Edge -->
+  <rect width="128" height="128" fill="#0F172A" />
 
-  <!-- Dominant Focus Frame Brackets -->
-  <path d="M 26 42 V 32 C 26 28.686 28.686 26 32 26 H 42" stroke="#2563EB" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 86 26 H 96 C 99.314 26 102 28.686 102 32 V 42" stroke="#2563EB" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 102 86 V 96 C 102 99.314 99.314 102 96 102 H 86" stroke="url(#ic-frame-grad-v2)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
-  <path d="M 42 102 H 32 C 28.686 102 26 99.314 26 96 V 86" stroke="url(#ic-frame-grad-v2)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Dominant Focus Frame Brackets (Centered 108x108 span, 10px safe margin) -->
+  <path d="M 10 38 V 22 C 10 15.373 15.373 10 22 10 H 38" stroke="#2563EB" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 90 10 H 106 C 112.627 10 118 15.373 118 22 V 38" stroke="#2563EB" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 118 90 V 106 C 118 112.627 112.627 118 106 118 H 90" stroke="url(#ic-frame-grad-v2)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 38 118 H 22 C 15.373 118 10 112.627 10 106 V 90" stroke="url(#ic-frame-grad-v2)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
 
   <!-- Supporting Optical Lens -->
-  <circle cx="64" cy="64" r="21" stroke="url(#ic-lens-grad-v2)" stroke-width="5.5" fill="none" />
-  <circle cx="64" cy="64" r="13" fill="#1E1B4B" />
-  <circle cx="68.5" cy="59.5" r="3" fill="#FFFFFF" />
+  <circle cx="64" cy="64" r="30" stroke="url(#ic-lens-grad-v2)" stroke-width="7.5" fill="none" />
+  <circle cx="64" cy="64" r="18.5" fill="#1E1B4B" />
+  <circle cx="70.5" cy="57.5" r="4" fill="#FFFFFF" />
 </svg>

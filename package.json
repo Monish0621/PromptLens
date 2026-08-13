@@ -2,7 +2,7 @@
   "name": "promptlens",
   "description": "A privacy-first Chrome extension that captures screenshots, extracts text locally using OCR, records browser workflows, and sends AI-ready prompts to ChatGPT, Claude, Gemini, Grok, and Perplexity.",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "wxt",

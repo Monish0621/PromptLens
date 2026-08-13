@@ -456,6 +456,8 @@ export default defineContentScript({
           border-radius: 3px;
           flex-shrink: 0;
           object-fit: contain;
+          background: rgba(30, 41, 59, 0.8);
+          padding: 1px;
         }
         .info {
           flex: 1;

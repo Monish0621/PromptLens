@@ -6,7 +6,7 @@ export default defineConfig({
   manifest: {
     name: 'PromptLens',
     description: 'Capture screenshots, extract text locally with OCR, record browser workflows, and send context to AI assistants.',
-    version: '1.0.0',
+    version: '1.0.1',
     permissions: [
       'activeTab',
       'tabs',

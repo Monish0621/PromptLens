@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.1] - 2026-08-13
+
+### Fixed
+
+- **Actual AI Assistant Favicon Resolution**: Implemented live background service worker favicon fetch and base64 data URI conversion to resolve tab favicons across Chrome Extension popups and in-page Share Sheet overlays without cross-origin CSP/CORS restrictions.
+- **Claude Favicon Visibility**: Resolved transparent SVG favicon rendering for Claude.ai tabs on dark extension backgrounds.
+- **Extension Icon Branding**: Corrected edge-to-edge `#0F172A` background artwork and scaling for all extension icon assets (16x16, 32x32, 48x48, 96x96, 128x128).
+
+### Maintenance
+
+- **Release Version Sync**: Bumped extension version metadata to 1.0.1 in `package.json` and `wxt.config.ts`.
+
+---
+
 ## [1.0.0] - 2026-08-05
 
 ### Added

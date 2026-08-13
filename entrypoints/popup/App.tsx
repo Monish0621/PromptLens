@@ -565,7 +565,7 @@ export default function App() {
                       className="w-3.5 h-3.5 accent-indigo-500 rounded cursor-pointer shrink-0"
                     />
                     {candidate.favIconUrl ? (
-                      <img src={candidate.favIconUrl} alt="" className="w-3.5 h-3.5 shrink-0 rounded-sm" />
+                      <img src={candidate.favIconUrl} alt="" className="w-3.5 h-3.5 shrink-0 rounded-sm object-contain bg-slate-800/80 p-0.5" />
                     ) : (
                       <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                     )}

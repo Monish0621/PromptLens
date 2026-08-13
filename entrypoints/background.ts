@@ -249,6 +249,69 @@ export default defineBackground(() => {
       }
     }
 
+    // In-memory cache for resolved favicon data URIs
+    private faviconCache = new Map<string, string>();
+
+    private uint8ArrayToBase64(bytes: Uint8Array): string {
+      let binary = '';
+      const len = bytes.byteLength;
+      const chunkSize = 8192;
+      for (let i = 0; i < len; i += chunkSize) {
+        const chunk = bytes.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk as any);
+      }
+      return btoa(binary);
+    }
+
+    public async resolveFavIconAsDataUri(tab: { url?: string; favIconUrl?: string }): Promise<string | undefined> {
+      if (!tab.url) return tab.favIconUrl;
+      if (tab.favIconUrl && tab.favIconUrl.startsWith('data:')) {
+        return tab.favIconUrl;
+      }
+
+      let domain = '';
+      try {
+        domain = new URL(tab.url).hostname;
+      } catch {
+        return tab.favIconUrl;
+      }
+
+      const cacheKey = tab.favIconUrl || domain;
+      if (this.faviconCache.has(cacheKey)) {
+        return this.faviconCache.get(cacheKey);
+      }
+
+      const candidateUrls: string[] = [];
+      if (tab.favIconUrl && tab.favIconUrl.startsWith('http')) {
+        candidateUrls.push(tab.favIconUrl);
+      }
+      if (domain) {
+        candidateUrls.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=64`);
+        candidateUrls.push(`https://${domain}/favicon.ico`);
+      }
+
+      for (const url of candidateUrls) {
+        try {
+          const response = await fetch(url);
+          if (response.ok) {
+            const contentType = response.headers.get('content-type')?.split(';')[0].trim() || 'image/png';
+            const arrayBuffer = await response.arrayBuffer();
+            if (arrayBuffer.byteLength > 0) {
+              const bytes = new Uint8Array(arrayBuffer);
+              const b64 = this.uint8ArrayToBase64(bytes);
+              const dataUri = `data:${contentType};base64,${b64}`;
+              this.faviconCache.set(cacheKey, dataUri);
+              return dataUri;
+            }
+          }
+        } catch (err: any) {
+          logger.debug(`resolveFavIconAsDataUri failed for ${url}: ${err.message}`);
+        }
+      }
+
+      return tab.favIconUrl;
+    }
+
     public evaluateTab(tab: chrome.tabs.Tab): RegisteredAiTab | null {
       if (!tab.id || !tab.windowId || !tab.url) return null;
       let urlObj: URL;
@@ -270,6 +333,16 @@ export default defineBackground(() => {
         };
         this.registry.set(tab.id, registered);
         this.syncStorage();
+
+        // Asynchronously resolve raw favicon URL to base64 data URI
+        this.resolveFavIconAsDataUri(tab).then(dataUri => {
+          if (dataUri && dataUri !== registered.favIconUrl) {
+            registered.favIconUrl = dataUri;
+            this.registry.set(tab.id!, registered);
+            this.syncStorage();
+          }
+        }).catch(() => {});
+
         logger.info(`AiTabRegistry: Evaluated & registered tab ${tab.id} (${match.name})`);
         return registered;
       } else {
@@ -311,12 +384,15 @@ export default defineBackground(() => {
       this.syncStorage();
       logger.info(`AiTabRegistry: Self-registration validated & saved for tab ${senderTabId} (${provider})`);
 
-      // Asynchronously refresh native Chrome tab properties (including favIconUrl)
-      chrome.tabs.get(senderTabId).then((tab: chrome.tabs.Tab) => {
-        if (tab && tab.favIconUrl && tab.favIconUrl !== updated.favIconUrl) {
-          updated.favIconUrl = tab.favIconUrl;
-          this.registry.set(senderTabId, updated);
-          this.syncStorage();
+      // Asynchronously refresh native Chrome tab properties and resolve favicon data URI
+      chrome.tabs.get(senderTabId).then(async (tab: chrome.tabs.Tab) => {
+        if (tab) {
+          const resolvedFavicon = await this.resolveFavIconAsDataUri(tab);
+          if (resolvedFavicon && resolvedFavicon !== updated.favIconUrl) {
+            updated.favIconUrl = resolvedFavicon;
+            this.registry.set(senderTabId, updated);
+            this.syncStorage();
+          }
         }
       }).catch(() => {});
     }
@@ -337,7 +413,10 @@ export default defineBackground(() => {
         try {
           const tab = await chrome.tabs.get(c.tabId);
           if (tab) {
-            if (tab.favIconUrl) {
+            const resolvedFavicon = await this.resolveFavIconAsDataUri(tab);
+            if (resolvedFavicon) {
+              c.favIconUrl = resolvedFavicon;
+            } else if (tab.favIconUrl) {
               c.favIconUrl = tab.favIconUrl;
             }
             valid.push(c);
