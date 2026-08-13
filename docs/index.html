@@ -3,152 +3,770 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy for PromptLens</title>
+  <title>PromptLens — Capture. Understand. Prompt.</title>
+  <meta name="description" content="PromptLens is a privacy-first Chrome extension that captures screenshots, extracts text locally using WebAssembly OCR, records browser workflows, and routes context to AI assistants.">
+  <link rel="icon" type="image/png" href="images/icon-128.png">
   <style>
     :root {
       --bg: #0f172a;
-      --card-bg: #1e293b;
+      --bg-card: #1e293b;
+      --bg-card-hover: #26354a;
       --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
       --border: #334155;
+      --accent: #818cf8;
+      --accent-glow: rgba(129, 140, 248, 0.15);
+      --accent-hover: #6366f1;
+      --sky: #38bdf8;
+      --emerald: #34d399;
+      --amber: #fbbf24;
+      --rose: #f43f5e;
+      --radius: 12px;
+      --max-w: 1100px;
     }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       line-height: 1.6;
-      margin: 0;
-      padding: 40px 20px;
+      -webkit-font-smoothing: antialiased;
     }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    a:hover {
+      color: var(--sky);
+    }
+
     .container {
-      max-width: 800px;
+      max-width: var(--max-w);
       margin: 0 auto;
-      background: var(--card-bg);
-      padding: 40px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      padding: 0 24px;
     }
-    h1 {
-      font-size: 2.2rem;
-      margin-top: 0;
+
+    /* ── Header Nav ── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .logo-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.2rem;
       color: #fff;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 16px;
     }
-    h2 {
+
+    .logo-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .nav-links a:hover {
+      color: #fff;
+    }
+
+    .btn-sm {
+      background: var(--accent);
+      color: #fff !important;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+
+    .btn-sm:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    /* ── Hero Section ── */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+      color: var(--accent);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+
+    .hero-title {
+      font-size: 3.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-tagline {
       font-size: 1.4rem;
-      margin-top: 32px;
-      color: #cbd5e1;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 8px;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 20px;
     }
-    p, li {
-      color: #cbd5e1;
+
+    .hero-desc {
+      max-width: 680px;
+      margin: 0 auto 36px;
+      font-size: 1.1rem;
+      color: var(--text-muted);
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--accent);
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      color: #fff;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 14px 28px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      transition: all 0.15s ease;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      color: #fff;
+      border-color: #475569;
+      transform: translateY(-2px);
+    }
+
+    .hero-preview {
+      margin-top: 50px;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      background: var(--bg-card);
+    }
+
+    .hero-preview img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    /* ── Section Structure ── */
+    section {
+      padding: 80px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-header {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 48px;
+    }
+
+    .section-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    .section-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Features Grid ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color 0.2s ease, transform 0.2s ease;
+    }
+
+    .feature-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-3px);
+    }
+
+    .feature-icon {
+      font-size: 1.8rem;
+      margin-bottom: 16px;
+      display: inline-block;
+    }
+
+    .feature-card h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+
+    .hotkey-badge {
+      display: inline-block;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-family: monospace;
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+
+    /* ── How It Works ── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 32px;
+      position: relative;
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      text-align: center;
+      position: relative;
+    }
+
+    .step-number {
+      width: 44px;
+      height: 44px;
+      background: var(--accent-glow);
+      border: 1px solid rgba(129, 140, 248, 0.4);
+      color: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.2rem;
+      margin: 0 auto 20px;
+    }
+
+    .step-card h3 {
+      font-size: 1.25rem;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .step-card p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Supported AI Providers ── */
+    .providers-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .provider-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 1.05rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .provider-pill.chatgpt { border-color: rgba(16, 163, 127, 0.4); }
+    .provider-pill.claude { border-color: rgba(204, 120, 92, 0.4); }
+    .provider-pill.gemini { border-color: rgba(66, 133, 244, 0.4); }
+    .provider-pill.grok { border-color: rgba(255, 255, 255, 0.2); }
+    .provider-pill.perplexity { border-color: rgba(32, 184, 205, 0.4); }
+
+    .disclaimer {
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Privacy Highlight Box ── */
+    .privacy-box {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.9) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: center;
+    }
+
+    .privacy-list {
+      list-style: none;
+    }
+
+    .privacy-list li {
+      position: relative;
+      padding-left: 28px;
+      margin-bottom: 14px;
+      font-size: 0.98rem;
+      color: var(--text-muted);
+    }
+
+    .privacy-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      top: 0;
+      color: var(--emerald);
+      font-weight: bold;
+    }
+
+    .privacy-action {
+      text-align: center;
+      border-left: 1px solid var(--border);
+      padding-left: 32px;
+    }
+
+    .privacy-action h3 {
+      font-size: 1.4rem;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .privacy-action p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 20px;
+    }
+
+    /* ── Open Source Section ── */
+    .open-source-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+    }
+
+    .open-source-box h3 {
+      font-size: 1.6rem;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .open-source-box p {
+      max-width: 560px;
+      margin: 0 auto 28px;
+      color: var(--text-muted);
       font-size: 1rem;
     }
-    strong {
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 0;
+      background: #090d16;
+    }
+
+    .footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 32px;
+      margin-bottom: 36px;
+    }
+
+    .footer-brand {
+      max-width: 320px;
+    }
+
+    .footer-brand p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      margin-top: 8px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 48px;
+    }
+
+    .footer-col h4 {
+      color: #fff;
+      font-size: 0.95rem;
+      margin-bottom: 14px;
+    }
+
+    .footer-col ul {
+      list-style: none;
+    }
+
+    .footer-col li {
+      margin-bottom: 8px;
+    }
+
+    .footer-col a {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .footer-col a:hover {
       color: #fff;
     }
-    hr {
-      border: 0;
-      height: 1px;
-      background: var(--border);
-      margin: 32px 0;
+
+    .footer-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 24px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-dim);
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 20px 0;
-    }
-    th, td {
-      text-align: left;
-      padding: 12px 16px;
-      border: 1px solid var(--border);
-    }
-    th {
-      background: #0f172a;
-      color: #fff;
-    }
-    code {
-      background: #0f172a;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: monospace;
-      color: #818cf8;
-    }
-    a {
-      color: #818cf8;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
+
+    /* ── Mobile Responsive ── */
+    @media (max-width: 768px) {
+      .hero-title { font-size: 2.2rem; }
+      .hero-tagline { font-size: 1.15rem; }
+      .nav-links { display: none; }
+      .privacy-box { grid-template-columns: 1fr; }
+      .privacy-action { border-left: none; border-top: 1px solid var(--border); padding-left: 0; padding-top: 24px; }
+      .footer-inner { flex-direction: column; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Privacy Policy for PromptLens</h1>
-    <p><strong>Effective Date</strong>: July 26, 2026</p>
-    <p>PromptLens is committed to respecting user privacy. This Privacy Policy explains how PromptLens processes data, why browser permissions are required, and the architecture surrounding local execution.</p>
-    <hr>
-    <h2>1. Local Processing Architecture</h2>
-    <p>PromptLens is designed around local in-browser processing:</p>
-    <ul>
-      <li><strong>Local Execution</strong>: PromptLens is designed to perform OCR processing, image enhancement, layout analysis, and text extraction locally within the browser using bundled WebAssembly components.</li>
-      <li><strong>No External Text Transmission</strong>: PromptLens itself does not transmit captured screenshots or extracted OCR text to external servers during normal operation.</li>
-      <li><strong>In-Memory Selection Processing</strong>: Visual screen selections exist in volatile browser memory buffers during text extraction and are discarded after processing completes.</li>
-    </ul>
-    <hr>
-    <h2>2. Data Handling & Storage</h2>
-    <ul>
-      <li>PromptLens does not maintain external analytics or remote usage tracking infrastructure.</li>
-      <li>PromptLens does not save captured screenshot images to your local disk or file system.</li>
-      <li>Captured image buffers are processed in memory and released following pipeline completion.</li>
-    </ul>
-    <hr>
-    <h2>3. Extension Permissions & Technical Justification</h2>
-    <p>PromptLens requests specific browser permissions required for its core features:</p>
-    <table>
-      <thead>
-        <tr>
-          <th>Permission</th>
-          <th>Technical Justification</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><code>activeTab</code></td>
-          <td>Required to display the selection overlay interface on the active tab when triggered by the user.</td>
-        </tr>
-        <tr>
-          <td><code>scripting</code></td>
-          <td>Required to inject the screen selection capture overlay into the active page when requested.</td>
-        </tr>
-        <tr>
-          <td><code>offscreen</code></td>
-          <td>Required to create an isolated background offscreen document to run the WebAssembly OCR engine without interrupting main tab performance.</td>
-        </tr>
-      </tbody>
-    </table>
-    <hr>
-    <h2>4. Operational Flow</h2>
-    <ol>
-      <li><strong>User Action</strong>: The user initiates a screen selection via hotkey or extension action.</li>
-      <li><strong>Local Selection</strong>: An overlay script captures the user-selected bounding box region on the screen.</li>
-      <li><strong>In-Memory OCR</strong>: The selection buffer is passed to an isolated Chrome Offscreen document where bundled WebAssembly components extract text locally.</li>
-      <li><strong>Context Formatting & Routing</strong>: Extracted text is formatted and routed to an active AI tab interface or copied to the system clipboard.</li>
-      <li><strong>Memory Cleanup</strong>: Image buffers are released upon pipeline completion.</li>
-    </ol>
-    <hr>
-    <h2>5. Third-Party Libraries</h2>
-    <p>PromptLens uses bundled local dependencies, including the Tesseract WebAssembly engine binary (<code>tesseract-core.wasm</code>) and language data files located within the extension package (<code>public/tesseract/</code>). No external remote scripts are loaded at runtime.</p>
-    <hr>
-    <h2>6. Open-Source Verification</h2>
-    <p>PromptLens is an open-source project. Users and developers may review the source code and local processing implementation on GitHub:</p>
-    <ul>
-      <li><strong>Repository</strong>: <a href="https://github.com/Monish0621/PromptLens" target="_blank">https://github.com/Monish0621/PromptLens</a></li>
-      <li><strong>Issue Tracker</strong>: <a href="https://github.com/Monish0621/PromptLens/issues" target="_blank">https://github.com/Monish0621/PromptLens/issues</a></li>
-    </ul>
-  </div>
+
+  <!-- Header Navigation -->
+  <header>
+    <div class="container">
+      <nav>
+        <a href="index.html" class="logo-group">
+          <img src="images/icon-128.png" alt="PromptLens Logo" class="logo-img">
+          <span>PromptLens</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how-it-works">How It Works</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+          <li><a href="privacy-policy.html">Privacy Policy</a></li>
+          <li><a href="https://github.com/Monish0621/PromptLens" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/Monish0621/PromptLens" target="_blank" rel="noopener" class="btn-sm">Get PromptLens</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="badge">
+          <span>✨</span>
+          <span>Privacy-First Chrome Extension</span>
+        </div>
+        <h1 class="hero-title">PromptLens</h1>
+        <div class="hero-tagline">Capture. Understand. Prompt.</div>
+        <p class="hero-desc">
+          Capture visual information from your browser, extract text locally using WebAssembly OCR, record browser workflows, and route selected context to your preferred AI assistant.
+        </p>
+        <div class="hero-actions">
+          <a href="https://github.com/Monish0621/PromptLens" target="_blank" rel="noopener" class="btn-primary">
+            <span>Get PromptLens</span>
+          </a>
+          <a href="https://github.com/Monish0621/PromptLens" target="_blank" rel="noopener" class="btn-secondary">
+            <span>View on GitHub</span>
+          </a>
+        </div>
+        <div class="hero-preview">
+          <img src="images/hero.png" alt="PromptLens Extension Screenshot & Dashboard">
+        </div>
+      </div>
+    </section>
+
+    <!-- Key Features Section -->
+    <section id="features">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Key Features</h2>
+          <p class="section-subtitle">Designed for fast, privacy-preserving visual context capture and seamless AI prompt preparation.</p>
+        </div>
+        <div class="features-grid">
+          
+          <div class="feature-card">
+            <div class="feature-icon">📷</div>
+            <h3>Screen Region Capture</h3>
+            <p>Select and capture exact screen regions on any webpage with interactive precision selection. Automatically handles High-DPI and Retina scaling.</p>
+            <div class="hotkey-badge">Alt + S</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">📝</div>
+            <h3>Local WebAssembly OCR</h3>
+            <p>Extract text from image selections locally using bundled Tesseract WebAssembly (<code>tesseract-core.wasm</code>) running in an offscreen document. Zero external server OCR calls.</p>
+            <div class="hotkey-badge">Alt + O</div>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <h3>AI Context Routing</h3>
+            <p>Route captured text, image crops, or WebM clips to active AI assistant tabs (ChatGPT, Claude, Gemini, Grok, Perplexity) only when explicitly requested by the user.</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">🎥</div>
+            <h3>Browser Workflow Recording</h3>
+            <p>Record active tab video streams via Chrome's native <code>tabCapture</code> API with an in-page floating controller for bug reports, tutorials, and workflow demos.</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">📚</div>
+            <h3>Recent Session History</h3>
+            <p>Review, re-copy, or route recent captures from the extension popup dashboard. Session clips are held in-memory and automatically wiped when Chrome closes.</p>
+          </div>
+
+          <div class="feature-card">
+            <div class="feature-icon">⌨️</div>
+            <h3>Native Hotkey Shortcuts</h3>
+            <p>Trigger region selection, OCR text extraction, or recording workflows instantly across any webpage using customizable global hotkeys.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">How It Works</h2>
+          <p class="section-subtitle">Three simple steps to transform visual webpage content into structured AI prompts.</p>
+        </div>
+        <div class="steps-grid">
+          
+          <div class="step-card">
+            <div class="step-number">1</div>
+            <h3>Capture</h3>
+            <p>Press <code>Alt+S</code> or <code>Alt+O</code> to draw a precision selection region over any webpage or start a tab video recording session.</p>
+          </div>
+
+          <div class="step-card">
+            <div class="step-number">2</div>
+            <h3>Understand</h3>
+            <p>PromptLens extracts text locally using WebAssembly OCR or compiles your tab recording in isolated browser memory.</p>
+          </div>
+
+          <div class="step-card">
+            <div class="step-number">3</div>
+            <h3>Prompt</h3>
+            <p>Select a target AI assistant tab in the popup dashboard or Share Sheet overlay to inject your captured context.</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Supported AI Assistants Section -->
+    <section id="ai-assistants">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Supported AI Assistants</h2>
+          <p class="section-subtitle">Automatically discovers open tabs for major AI assistant platforms.</p>
+        </div>
+        <div class="providers-wrap">
+          <div class="provider-pill chatgpt">ChatGPT</div>
+          <div class="provider-pill claude">Claude</div>
+          <div class="provider-pill gemini">Gemini</div>
+          <div class="provider-pill grok">Grok</div>
+          <div class="provider-pill perplexity">Perplexity</div>
+        </div>
+        <p class="disclaimer">
+          PromptLens is an independent open-source project and is not affiliated with, sponsored by, or endorsed by OpenAI, Anthropic, Google, xAI, or Perplexity.
+        </p>
+      </div>
+    </section>
+
+    <!-- Privacy Section -->
+    <section id="privacy">
+      <div class="container">
+        <div class="privacy-box">
+          <div>
+            <h2 style="font-size: 1.8rem; color: #fff; margin-bottom: 16px;">Privacy First Architecture</h2>
+            <ul class="privacy-list">
+              <li><strong>Local WebAssembly Execution</strong>: OCR and image pre-processing run 100% locally within browser memory.</li>
+              <li><strong>No PromptLens Servers</strong>: Zero remote backend servers, cloud OCR endpoints, or telemetry trackers.</li>
+              <li><strong>User-Initiated Routing</strong>: Context is sent to third-party AI services only when explicitly initiated by the user.</li>
+              <li><strong>Zero Analytics & Ads</strong>: No tracking pixels, analytics SDKs, advertising code, or user profiling.</li>
+            </ul>
+          </div>
+          <div class="privacy-action">
+            <h3>Complete Transparency</h3>
+            <p>Read our complete, detailed disclosures regarding Chrome permissions, local storage handling, and session history management.</p>
+            <a href="privacy-policy.html" class="btn-secondary">
+              <span>Read Full Privacy Policy →</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Open Source Section -->
+    <section id="open-source">
+      <div class="container">
+        <div class="open-source-box">
+          <h3>Built in the Open</h3>
+          <p>
+            PromptLens is open source and built with transparent, auditable code. Inspect the implementation, report issues, or contribute on GitHub.
+          </p>
+          <div class="hero-actions">
+            <a href="https://github.com/Monish0621/PromptLens" target="_blank" rel="noopener" class="btn-primary">
+              <span>GitHub Repository</span>
+            </a>
+            <a href="https://github.com/Monish0621/PromptLens/issues" target="_blank" rel="noopener" class="btn-secondary">
+              <span>Report an Issue</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <div class="logo-group">
+            <img src="images/icon-128.png" alt="PromptLens Logo" class="logo-img">
+            <span>PromptLens</span>
+          </div>
+          <p>Capture. Understand. Prompt.<br>Privacy-first Chrome extension for visual context capture and AI prompt preparation.</p>
+        </div>
+        <div class="footer-links">
+          <div class="footer-col">
+            <h4>Product</h4>
+            <ul>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#how-it-works">How It Works</a></li>
+              <li><a href="#ai-assistants">Supported AI</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Privacy & Legal</h4>
+            <ul>
+              <li><a href="privacy-policy.html">Privacy Policy</a></li>
+              <li><a href="#privacy">Privacy Architecture</a></li>
+            </ul>
+          </div>
+          <div class="footer-col">
+            <h4>Community</h4>
+            <ul>
+              <li><a href="https://github.com/Monish0621/PromptLens" target="_blank" rel="noopener">GitHub</a></li>
+              <li><a href="https://github.com/Monish0621/PromptLens/issues" target="_blank" rel="noopener">Issues</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2026 PromptLens. Open-source under MIT License.</p>
+      </div>
+    </div>
+  </footer>
+
 </body>
 </html>
