@@ -102,8 +102,8 @@
     <h2>2. Data Handling, Storage & Retention</h2>
     <ul>
       <li><strong>Screen Captures</strong>: Screenshot regions are held in memory during OCR processing and are not written to your permanent disk or file system by PromptLens.</li>
-      <li><strong>OCR Text & Session History</strong>: Extracted text snippets are stored locally on your device in <code>chrome.storage.local</code> under session history (capped at a maximum of 20 items) so you can review or re-copy recent clips. You can clear your session history at any time.</li>
-      <li><strong>Tab Screen Recording</strong>: Browser tab screen recordings (<code>tabCapture</code>) are processed locally in an offscreen MediaRecorder context. Recording streams are held temporarily in local storage/memory for user review or download and are never transmitted to PromptLens servers.</li>
+      <li><strong>OCR Text & Session History</strong>: Extracted OCR text, screen captures, and recorded video previews are held temporarily in your browser's session-scoped storage (<code>chrome.storage.session</code>), capped at a maximum of 10 recent items, so you can review, copy, download, or route recent captures during your active browser session. Session capture history is held in memory, automatically cleared when your browser session ends, and can also be manually cleared from the extension dashboard at any time.</li>
+      <li><strong>Tab Screen Recording</strong>: Browser tab screen recordings (<code>tabCapture</code>) are captured and compiled locally using Chrome's <code>tabCapture</code> API and an offscreen <code>MediaRecorder</code> context. The resulting WebM recording is held temporarily in <code>chrome.storage.session</code> as a data URL for review, download, or optional user-initiated routing to a supported AI destination. Recording streams and memory buffers are released upon recording completion, and recording data is never transmitted to PromptLens servers.</li>
       <li><strong>Clipboard Operations</strong>: PromptLens copies extracted text or screen capture images to your system clipboard strictly when you explicitly trigger the copy action.</li>
     </ul>
     <hr>
@@ -144,7 +144,7 @@
         </tr>
         <tr>
           <td><code>storage</code></td>
-          <td>Allows PromptLens to persist user preferences, AI tab destination options, and recent clip history locally using <code>chrome.storage.local</code>.</td>
+          <td>Allows PromptLens to persist local extension state and active AI destination tab options using <code>chrome.storage.local</code>, while session capture history is managed separately in memory via <code>chrome.storage.session</code>.</td>
         </tr>
         <tr>
           <td><code>tabCapture</code></td>

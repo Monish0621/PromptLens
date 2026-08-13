@@ -19,8 +19,8 @@ PromptLens is designed around a local-first processing model:
 ## 2. Data Handling, Storage & Retention
 
 - **Screen Captures**: Screenshot regions are held in memory during OCR processing and are not written to your permanent disk or file system by PromptLens.
-- **OCR Text & Session History**: Extracted text snippets are stored locally on your device in `chrome.storage.local` under session history (capped at a maximum of 20 items) so you can review or re-copy recent clips. You can clear your session history at any time.
-- **Tab Screen Recording**: Browser tab screen recordings (`tabCapture`) are processed locally in an offscreen MediaRecorder context. Recording streams are held temporarily in local storage/memory for user review or download and are never transmitted to PromptLens servers.
+- **OCR Text & Session History**: Extracted OCR text, screen captures, and recorded video previews are held temporarily in your browser's session-scoped storage (`chrome.storage.session`), capped at a maximum of 10 recent items, so you can review, copy, download, or route recent captures during your active browser session. Session capture history is held in memory, automatically cleared when your browser session ends, and can also be manually cleared from the extension dashboard at any time.
+- **Tab Screen Recording**: Browser tab screen recordings (`tabCapture`) are captured and compiled locally using Chrome's `tabCapture` API and an offscreen `MediaRecorder` context. The resulting WebM recording is held temporarily in `chrome.storage.session` as a data URL for review, download, or optional user-initiated routing to a supported AI destination. Recording streams and memory buffers are released upon recording completion, and recording data is never transmitted to PromptLens servers.
 - **Clipboard Operations**: PromptLens copies extracted text or screen capture images to your system clipboard strictly when you explicitly trigger the copy action.
 
 ---
@@ -46,7 +46,7 @@ PromptLens requests only the permissions necessary to deliver its core single-pu
 | `tabs` | Allows PromptLens to inspect open tab URLs locally to discover active AI destinations (ChatGPT, Claude, Gemini, Grok, Perplexity) for prompt routing. |
 | `scripting` | Allows PromptLens to render visual selection overlays and floating recording controls on the active page. |
 | `offscreen` | Allows PromptLens to run WebAssembly OCR extraction and tab recording streams in an isolated background document. |
-| `storage` | Allows PromptLens to persist user preferences, AI tab destination options, and recent clip history locally using `chrome.storage.local`. |
+| `storage` | Allows PromptLens to persist local extension state and active AI destination tab options using `chrome.storage.local`, while session capture history is managed separately in memory via `chrome.storage.session`. |
 | `tabCapture` | Allows PromptLens to capture browser tab video streams when you explicitly start a screen recording workflow. |
 | `clipboardWrite` | Allows PromptLens to copy extracted OCR text or screenshots to your system clipboard upon your explicit action. |
 | `<all_urls>` | Required to display the interactive visual selection overlay across web pages when you press a hotkey or trigger capture. |
